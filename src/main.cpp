@@ -10,6 +10,8 @@
 #include "imgui_impl_opengl3.h"
 #include "portable-file-dialogs.h"
 
+#define DEFAULT_FONT_INDEX (3)  // Start with a comfortable 20px font
+
 std::string currentFilePath = "";
 
 // --- CUSTOM MARKDOWN DEFINITION (PRIORITY FIXED) ---
@@ -38,9 +40,10 @@ TextEditor::LanguageDefinition GetMarkdownDefinition() {
     lang.mTokenRegexStrings.push_back(std::make_pair("^[ \\t]*>", TextEditor::PaletteIndex::Comment));
 
     // Disable standard C++ parsing rules
-    lang.mCommentStart = "";
-    lang.mCommentEnd = "";
-    lang.mSingleLineComment = "";
+    // Use a sentinel that won't appear in text to avoid "empty comment" matches.
+    lang.mCommentStart = "\x01";
+    lang.mCommentEnd = "\x01";
+    lang.mSingleLineComment = "\x01";
     lang.mPreprocChar = 0;
     lang.mAutoIndentation = false;
     lang.mCaseSensitive = true;
@@ -81,7 +84,7 @@ int main() {
 
     std::string currentFilePath = "";
     std::vector<ImFont*> editorFonts;  // NEW: Store multiple crisp font sizes
-    int currentFontIndex = 2;          // NEW: Default to index 2 (18px)
+    int currentFontIndex = DEFAULT_FONT_INDEX;          // NEW: Default to index 3 (20px)
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
@@ -115,6 +118,9 @@ int main() {
         for (int i = 0; i < 10; ++i) editorFonts.push_back(nullptr);
     }
 
+    // Create a persistent Markdown definition so toggling doesn't pass temporaries
+    TextEditor::LanguageDefinition markdownDef = GetMarkdownDefinition();
+
     TextEditor editor;
     editor.SetPalette(TextEditor::GetDarkPalette());
     editor.SetText("_Start *typing* or open a file..._");
@@ -122,10 +128,12 @@ int main() {
     // We start with Plain Text (an empty definition)
     TextEditor::LanguageDefinition plainTextDef;
     plainTextDef.mName = "Plain Text";
+    plainTextDef.mCommentStart = "\x01";
+    plainTextDef.mCommentEnd = "\x01";
+    plainTextDef.mSingleLineComment = "\x01";
+    plainTextDef.mPreprocChar = 0;
+    plainTextDef.mAutoIndentation = false;
     editor.SetLanguageDefinition(plainTextDef);
-
-    // Create a persistent Markdown definition so toggling doesn't pass temporaries
-    TextEditor::LanguageDefinition markdownDef = GetMarkdownDefinition();
 
     // State flags for file operations
     bool triggerOpen = false;
@@ -133,7 +141,11 @@ int main() {
     bool triggerSave = false;
 
     // markdown toggle state
-    bool enableMarkdown = false;
+    bool enableMarkdown = true;
+
+    if(enableMarkdown) {
+        editor.SetLanguageDefinition(markdownDef);
+    }
 
     std::string lastFilePath = "UNINITIALIZED";  // Force an update on the first frame
 
@@ -172,7 +184,7 @@ int main() {
         }
         if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Equal, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd, false) || ImGui::IsKeyPressed(ImGuiKey_RightBracket, false))) currentFontIndex++;
         if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Minus, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract, false))) currentFontIndex--;
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = 2;  // Reset
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = DEFAULT_FONT_INDEX;  // Reset
 
         // Clamp the zoom index safely within our loaded font sizes
         if (currentFontIndex < 0) currentFontIndex = 0;
@@ -262,7 +274,7 @@ int main() {
                     currentFontIndex--;
                 }
                 if (ImGui::MenuItem("Reset Zoom", "Ctrl+0")) {
-                    currentFontIndex = 2;
+                    currentFontIndex = DEFAULT_FONT_INDEX;
                 }
 
                 ImGui::EndMenu();
