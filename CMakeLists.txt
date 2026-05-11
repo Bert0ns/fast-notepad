@@ -65,7 +65,7 @@ target_include_directories(ImGuiLib PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DI
 target_link_libraries(ImGuiLib PRIVATE glfw ${OPENGL_LIBRARIES})
 
 # 7. Define our executable (Now including TextEditor.cpp)
-add_executable(FastNotepad 
+add_executable(FastNotepad WIN32
     src/main.cpp 
     ${textedit_SOURCE_DIR}/TextEditor.cpp
 )
@@ -76,5 +76,17 @@ target_include_directories(FastNotepad PRIVATE
     ${imgui_SOURCE_DIR} 
     ${pfd_SOURCE_DIR}
     ${stb_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/assets
 )
 target_link_libraries(FastNotepad PRIVATE glfw ImGuiLib ${OPENGL_LIBRARIES})
+
+# Embed the application icon on Windows.
+if(WIN32)
+    set(APP_ICON_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/assets/app.rc")
+    target_sources(FastNotepad PRIVATE ${APP_ICON_RESOURCE})
+endif()
+
+if(MSVC)
+    # Build as a GUI app without requiring a WinMain entry point.
+    target_link_options(FastNotepad PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+endif()

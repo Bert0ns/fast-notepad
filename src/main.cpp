@@ -1,5 +1,12 @@
 #include <GLFW/glfw3.h>
 
+#ifdef _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#include <windows.h>
+#include "resource.h"
+#endif
+
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -109,6 +116,26 @@ std::vector<std::string> GetIconSearchPaths() {
 }
 
 bool SetWindowIcon(GLFWwindow* window) {
+#ifdef _WIN32
+    HWND hwnd = glfwGetWin32Window(window);
+    if (!hwnd) {
+        return false;
+    }
+
+    HICON icon = static_cast<HICON>(LoadImageW(GetModuleHandleW(nullptr),
+                                               MAKEINTRESOURCEW(IDI_ICON1),
+                                               IMAGE_ICON,
+                                               0,
+                                               0,
+                                               LR_DEFAULTSIZE));
+    if (!icon) {
+        return false;
+    }
+
+    SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon));
+    SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon));
+    return true;
+#else
     int width = 0;
     int height = 0;
     int channels = 0;
@@ -130,6 +157,7 @@ bool SetWindowIcon(GLFWwindow* window) {
 
     std::cerr << "Failed to load icon.png: " << (stbi_failure_reason() ? stbi_failure_reason() : "unknown") << "\n";
     return false;
+#endif
 }
 }  // namespace
 
