@@ -10,37 +10,25 @@
 #include "imgui_impl_opengl3.h"
 #include "portable-file-dialogs.h"
 
-#define DEFAULT_FONT_INDEX (3)  // Start with a comfortable 20px font
+#define DEFAULT_FONT_INDEX (3)
 
 std::string currentFilePath = "";
 
-// --- CUSTOM MARKDOWN DEFINITION (PRIORITY FIXED) ---
 TextEditor::LanguageDefinition GetMarkdownDefinition() {
     TextEditor::LanguageDefinition lang;
     lang.mName = "Markdown";
 
-    // 1. INLINE CODE (Highest Priority)
-    // Matches `code`. We want this first so asterisks inside backticks don't trigger bold/italic.
     lang.mTokenRegexStrings.push_back(std::make_pair("`[^`]+`", TextEditor::PaletteIndex::String));
 
-    // 2. BOLD
-    // Must come BEFORE italic, otherwise the single '*' rule will eat the first half of the '**'
     lang.mTokenRegexStrings.push_back(std::make_pair("\\*\\*[^*]+\\*\\*", TextEditor::PaletteIndex::Keyword));
 
-    // 3. ITALIC
     lang.mTokenRegexStrings.push_back(std::make_pair("\\*[^*]+\\*", TextEditor::PaletteIndex::KnownIdentifier));
 
-    // 4. HEADERS (Modified)
-    // Instead of eating the whole line, we ONLY color the '#' symbols.
-    // This allows text immediately following the header to still parse bold/italics!
     lang.mTokenRegexStrings.push_back(std::make_pair("^[ \\t]*#+", TextEditor::PaletteIndex::Preprocessor));
 
-    // 5. BLOCKQUOTES (Modified)
-    // Same logic: only color the '>' symbol so the quote text can still be formatted.
     lang.mTokenRegexStrings.push_back(std::make_pair("^[ \\t]*>", TextEditor::PaletteIndex::Comment));
 
-    // Disable standard C++ parsing rules
-    // Use a sentinel that won't appear in text to avoid "empty comment" matches.
+    // Use a sentinel to avoid empty comment matches in the parser.
     lang.mCommentStart = "\x01";
     lang.mCommentEnd = "\x01";
     lang.mSingleLineComment = "\x01";
@@ -83,8 +71,8 @@ int main() {
     }
 
     std::string currentFilePath = "";
-    std::vector<ImFont*> editorFonts;  // NEW: Store multiple crisp font sizes
-    int currentFontIndex = DEFAULT_FONT_INDEX;          // NEW: Default to index 3 (20px)
+    std::vector<ImFont*> editorFonts;
+    int currentFontIndex = DEFAULT_FONT_INDEX;
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
@@ -95,11 +83,9 @@ int main() {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
-    // --- NEW: SMART FONT LOADING ---
     ImGuiIO& io = ImGui::GetIO();
-    io.Fonts->AddFontDefault();  // Load default tiny font for the Menu Bar
+    io.Fonts->AddFontDefault();
 
-    // Try to find a standard monospace font based on the OS
     const char* fontPath = nullptr;
     std::ifstream f_win("C:\\Windows\\Fonts\\consola.ttf");
     std::ifstream f_lin("/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf");
@@ -108,24 +94,21 @@ int main() {
     else if (f_lin.good())
         fontPath = "/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf";
 
-    // Load the font at 10 different, pixel-perfect sizes
+    // Load monospace font sizes for zooming.
     if (fontPath) {
         for (int size = 14; size <= 32; size += 2) {
             editorFonts.push_back(io.Fonts->AddFontFromFileTTF(fontPath, size));
         }
     } else {
-        // Fallback if font isn't found
         for (int i = 0; i < 10; ++i) editorFonts.push_back(nullptr);
     }
 
-    // Create a persistent Markdown definition so toggling doesn't pass temporaries
     TextEditor::LanguageDefinition markdownDef = GetMarkdownDefinition();
 
     TextEditor editor;
     editor.SetPalette(TextEditor::GetDarkPalette());
     editor.SetText("_Start *typing* or open a file..._");
 
-    // We start with Plain Text (an empty definition)
     TextEditor::LanguageDefinition plainTextDef;
     plainTextDef.mName = "Plain Text";
     plainTextDef.mCommentStart = "\x01";
@@ -135,27 +118,24 @@ int main() {
     plainTextDef.mAutoIndentation = false;
     editor.SetLanguageDefinition(plainTextDef);
 
-    // State flags for file operations
     bool triggerOpen = false;
     bool triggerSaveAs = false;
     bool triggerSave = false;
 
-    // markdown toggle state
     bool enableMarkdown = true;
 
-    if(enableMarkdown) {
+    if (enableMarkdown) {
         editor.SetLanguageDefinition(markdownDef);
     }
 
-    std::string lastFilePath = "UNINITIALIZED";  // Force an update on the first frame
+    std::string lastFilePath = "UNINITIALIZED";
 
     bool isDarkTheme = true;
-    ImVec4 clear_color = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);  // Default to dark grey
+    ImVec4 clear_color = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        // --- ONLY UPDATE TITLE IF THE FILE CHANGED ---
         if (currentFilePath != lastFilePath) {
             std::string title = currentFilePath.empty() ? "Fast Notepad - Untitled" : "Fast Notepad - " + currentFilePath;
             glfwSetWindowTitle(window, title.c_str());
@@ -175,7 +155,6 @@ int main() {
                 triggerSave = true;
             }
         }
-        // FONT SCALING SHORTCUTS
         if (io.KeyCtrl && io.MouseWheel != 0.0f) {
             if (io.MouseWheel > 0)
                 currentFontIndex++;
@@ -184,9 +163,8 @@ int main() {
         }
         if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Equal, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd, false) || ImGui::IsKeyPressed(ImGuiKey_RightBracket, false))) currentFontIndex++;
         if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Minus, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract, false))) currentFontIndex--;
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = DEFAULT_FONT_INDEX;  // Reset
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = DEFAULT_FONT_INDEX;
 
-        // Clamp the zoom index safely within our loaded font sizes
         if (currentFontIndex < 0) currentFontIndex = 0;
         if (currentFontIndex >= (int)editorFonts.size()) currentFontIndex = (int)editorFonts.size() - 1;
 
@@ -197,7 +175,6 @@ int main() {
                     currentFilePath = "";
                 }
 
-                // Set flags instead of blocking the UI thread immediately
                 if (ImGui::MenuItem("Open", "Ctrl+O")) {
                     triggerOpen = true;
                 }
@@ -234,12 +211,9 @@ int main() {
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("View")) {
-                // --- TOGGLE MARKDOWN LOGIC ---
                 bool prevMarkdownState = enableMarkdown;
-                // Passing &enableMarkdown adds a checkmark UI to the menu item!
                 ImGui::MenuItem("Markdown Highlighting", nullptr, &enableMarkdown);
 
-                // If the user clicked it, swap the language definition
                 if (enableMarkdown != prevMarkdownState) {
                     if (enableMarkdown) {
                         editor.SetLanguageDefinition(markdownDef);
@@ -262,11 +236,10 @@ int main() {
                     } else {
                         ImGui::StyleColorsLight();
                         editor.SetPalette(TextEditor::GetLightPalette());
-                        clear_color = ImVec4(0.95f, 0.95f, 0.95f, 1.0f);  // Clean off-white
+                        clear_color = ImVec4(0.95f, 0.95f, 0.95f, 1.0f);
                     }
                 }
 
-                // --- NEW ZOOM CONTROLS ---
                 if (ImGui::MenuItem("Zoom In", "Ctrl++")) {
                     currentFontIndex++;
                 }
@@ -286,14 +259,12 @@ int main() {
         ImGui::SetNextWindowPos(viewport->WorkPos);
         ImGui::SetNextWindowSize(viewport->WorkSize);
 
-        // ADDED: ImGuiWindowFlags_NoBringToFrontOnFocus (Fixes the flickering conflict)
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
                                         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                                         ImGuiWindowFlags_NoBringToFrontOnFocus;
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         ImGui::Begin("MainWorkspace", nullptr, window_flags);
-        // Push the crisp font ONLY for the editor!
         if (editorFonts[currentFontIndex] != nullptr) {
             ImGui::PushFont(editorFonts[currentFontIndex]);
         }
@@ -312,8 +283,7 @@ int main() {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
 
-        // --- HANDLE FILE DIALOGS AFTER RENDERING ---
-        // This ensures the UI doesn't freeze or glitch while the OS window is open
+        // Run file dialogs after rendering to avoid UI blocking artifacts.
         if (triggerOpen) {
             auto f = pfd::open_file("Choose text file", ".", {"Text Files", "*.txt *.md *.cpp *.h", "All Files", "*"});
             if (!f.result().empty()) {
