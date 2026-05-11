@@ -110,6 +110,8 @@ int main() {
 
     std::string lastFilePath = "UNINITIALIZED";  // Force an update on the first frame
 
+    float fontScale = 2.0f; // Default font scale
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -133,6 +135,27 @@ int main() {
                 triggerSave = true;
             }
         }
+        // FONT SCALING SHORTCUTS
+        // 1. Ctrl + Mouse Wheel
+        if (io.KeyCtrl && io.MouseWheel != 0.0f) {
+            fontScale += io.MouseWheel * 0.1f;
+        }
+        // 2. Ctrl + '+' (Using ImGuiKey_Equal because '+' is usually Shift+'=')
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Equal, false)) {
+            fontScale += 0.1f;
+        }
+        // 3. Ctrl + '-'
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Minus, false)) {
+            fontScale -= 0.1f;
+        }
+        // 4. Ctrl + '0' (Reset)
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) {
+            fontScale = 2.0f;
+        }
+
+        if (fontScale < 0.5f) fontScale = 0.5f;
+        if (fontScale > 10.0f) fontScale = 10.0f;
+        io.FontGlobalScale = fontScale;
 
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
@@ -192,6 +215,19 @@ int main() {
                         editor.SetLanguageDefinition(plainTextDef);
                         printf("Markdown highlighting disabled.\n");
                     }
+                }
+
+                ImGui::Separator();
+
+                // --- NEW ZOOM CONTROLS ---
+                if (ImGui::MenuItem("Zoom In", "Ctrl++")) {
+                    fontScale += 0.1f;
+                }
+                if (ImGui::MenuItem("Zoom Out", "Ctrl+-")) {
+                    fontScale -= 0.1f;
+                }
+                if (ImGui::MenuItem("Reset Zoom", "Ctrl+0")) {
+                    fontScale = 2.0f;
                 }
 
                 ImGui::EndMenu();
