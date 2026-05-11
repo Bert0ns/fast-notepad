@@ -12,6 +12,8 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <array>
+#include <cstdio>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "TextEditor.h"
@@ -43,6 +45,12 @@ struct AppState {
     bool triggerSave = false;
     bool enableMarkdown = true;
     bool isDarkTheme = true;
+    bool showFindPanel = false;
+    bool focusFindInput = false;
+    bool findWrapped = false;
+    bool findFailed = false;
+    std::array<char, 256> findBuffer = {0};
+    bool wrapSearch = true;
 };
 
 void ApplyNoCommentParsing(TextEditor::LanguageDefinition& lang) {
@@ -107,6 +115,106 @@ void ApplyTheme(bool isDarkTheme, TextEditor& editor, ImVec4& clearColor) {
 void ClampFontIndex(int& index, int maxSize) {
     if (index < 0) index = 0;
     if (index >= maxSize) index = maxSize - 1;
+}
+
+void UpdateFindBufferFromSelection(AppState& state, TextEditor& editor) {
+    if (!editor.HasSelection()) return;
+
+    std::string selected = editor.GetSelectedText();
+    auto newlinePos = selected.find('\n');
+    if (newlinePos != std::string::npos) {
+        selected = selected.substr(0, newlinePos);
+    }
+
+    if (selected.empty()) return;
+    std::snprintf(state.findBuffer.data(), state.findBuffer.size(), "%s", selected.c_str());
+}
+
+int Utf8CharLength(unsigned char c) {
+    if ((c & 0xFE) == 0xFC) return 6;
+    if ((c & 0xFC) == 0xF8) return 5;
+    if ((c & 0xF8) == 0xF0) return 4;
+    if ((c & 0xF0) == 0xE0) return 3;
+    if ((c & 0xE0) == 0xC0) return 2;
+    return 1;
+}
+
+int ByteIndexToColumn(const std::string& line, int byteIndex, int tabSize) {
+    int column = 0;
+    int i = 0;
+    const int limit = std::min<int>(byteIndex, static_cast<int>(line.size()));
+    while (i < limit) {
+        unsigned char c = static_cast<unsigned char>(line[i]);
+        if (c == '\t') {
+            column = (column / tabSize) * tabSize + tabSize;
+            ++i;
+        } else {
+            ++column;
+            i += Utf8CharLength(c);
+        }
+    }
+    return column;
+}
+
+int ColumnToByteIndex(const std::string& line, int column, int tabSize) {
+    int currentColumn = 0;
+    int i = 0;
+    while (i < static_cast<int>(line.size()) && currentColumn < column) {
+        unsigned char c = static_cast<unsigned char>(line[i]);
+        if (c == '\t') {
+            int nextColumn = (currentColumn / tabSize) * tabSize + tabSize;
+            if (nextColumn > column) break;
+            currentColumn = nextColumn;
+            ++i;
+        } else {
+            ++currentColumn;
+            i += Utf8CharLength(c);
+        }
+    }
+    return i;
+}
+
+bool FindNextMatch(TextEditor& editor, const std::string& query, bool wrap, bool& wrapped) {
+    wrapped = false;
+    if (query.empty()) return false;
+
+    const auto lines = editor.GetTextLines();
+    if (lines.empty()) return false;
+
+    const auto cursor = editor.GetCursorPosition();
+    int startLine = std::min<int>(cursor.mLine, static_cast<int>(lines.size() - 1));
+    int startByte = ColumnToByteIndex(lines[startLine], cursor.mColumn, editor.GetTabSize());
+
+    for (int line = startLine; line < static_cast<int>(lines.size()); ++line) {
+        const auto& text = lines[line];
+        const size_t from = (line == startLine) ? static_cast<size_t>(startByte) : 0u;
+        const size_t pos = text.find(query, from);
+        if (pos != std::string::npos) {
+            int startCol = ByteIndexToColumn(text, static_cast<int>(pos), editor.GetTabSize());
+            int endCol = ByteIndexToColumn(text, static_cast<int>(pos + query.size()), editor.GetTabSize());
+            editor.SetSelection({line, startCol}, {line, endCol});
+            editor.SetCursorPosition({line, endCol});
+            return true;
+        }
+    }
+
+    if (!wrap) return false;
+
+    for (int line = 0; line <= startLine; ++line) {
+        const auto& text = lines[line];
+        const size_t limit = (line == startLine) ? static_cast<size_t>(startByte) : text.size();
+        size_t pos = text.find(query, 0u);
+        if (pos != std::string::npos && pos < limit) {
+            int startCol = ByteIndexToColumn(text, static_cast<int>(pos), editor.GetTabSize());
+            int endCol = ByteIndexToColumn(text, static_cast<int>(pos + query.size()), editor.GetTabSize());
+            editor.SetSelection({line, startCol}, {line, endCol});
+            editor.SetCursorPosition({line, endCol});
+            wrapped = true;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 std::vector<std::string> GetIconSearchPaths() {
@@ -280,6 +388,11 @@ int main() {
                 state.triggerSave = true;
             }
         }
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F, false)) {
+            UpdateFindBufferFromSelection(state, editor);
+            state.showFindPanel = true;
+            state.focusFindInput = true;
+        }
         if (io.KeyCtrl && io.MouseWheel != 0.0f) {
             if (io.MouseWheel > 0)
                 currentFontIndex++;
@@ -289,6 +402,10 @@ int main() {
         if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Equal, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd, false) || ImGui::IsKeyPressed(ImGuiKey_RightBracket, false))) currentFontIndex++;
         if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Minus, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract, false))) currentFontIndex--;
         if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = kDefaultFontIndex;
+
+        if (state.showFindPanel && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+            state.showFindPanel = false;
+        }
 
         ClampFontIndex(currentFontIndex, (int)editorFonts.size());
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kMenuBarPaddingX, kMenuBarPaddingY));
@@ -334,6 +451,12 @@ int main() {
                 }
                 if (ImGui::MenuItem("Paste", "Ctrl+V")) {
                     editor.Paste();
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Find", "Ctrl+F")) {
+                    UpdateFindBufferFromSelection(state, editor);
+                    state.showFindPanel = true;
+                    state.focusFindInput = true;
                 }
                 ImGui::EndMenu();
             }
@@ -393,6 +516,46 @@ int main() {
         }
         ImGui::End();
         ImGui::PopStyleVar();
+
+        if (state.showFindPanel) {
+            ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 340.0f,
+                                           viewport->WorkPos.y + 12.0f),
+                                    ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(320.0f, 0.0f), ImGuiCond_Always);
+            ImGuiWindowFlags findFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
+                                         ImGuiWindowFlags_AlwaysAutoResize;
+            if (ImGui::Begin("Find", &state.showFindPanel, findFlags)) {
+                if (state.focusFindInput) {
+                    ImGui::SetKeyboardFocusHere();
+                    state.focusFindInput = false;
+                }
+
+                ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
+                bool submit = ImGui::InputText("##FindInput", state.findBuffer.data(), state.findBuffer.size(), inputFlags);
+                ImGui::SameLine();
+                if (ImGui::Button("Find Next")) {
+                    submit = true;
+                }
+
+                ImGui::SameLine();
+                ImGui::Checkbox("Wrap", &state.wrapSearch);
+
+                if (submit) {
+                    std::string query(state.findBuffer.data());
+                    state.findFailed = !FindNextMatch(editor, query, state.wrapSearch, state.findWrapped);
+                    if (!state.findFailed) {
+                        state.showFindPanel = true;
+                    }
+                }
+
+                if (state.findFailed) {
+                    ImGui::TextUnformatted("No matches found.");
+                } else if (state.findWrapped) {
+                    ImGui::TextUnformatted("Wrapped to start.");
+                }
+            }
+            ImGui::End();
+        }
 
         ImGui::Render();
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);

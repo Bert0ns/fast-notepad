@@ -42,6 +42,7 @@ Debug\FastNotepad.exe
 - Ctrl+Shift+S: Save As
 - Ctrl+Z / Ctrl+Y: Undo / Redo
 - Ctrl+X / Ctrl+C / Ctrl+V: Cut / Copy / Paste
+- Ctrl+F: Find
 - Ctrl+Mouse Wheel: Zoom
 - Ctrl++ / Ctrl+- / Ctrl+0: Zoom In / Zoom Out / Reset Zoom
 
