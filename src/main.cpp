@@ -12,6 +12,42 @@
 
 std::string currentFilePath = "";
 
+// --- CUSTOM MARKDOWN DEFINITION (PRIORITY FIXED) ---
+TextEditor::LanguageDefinition GetMarkdownDefinition() {
+    TextEditor::LanguageDefinition lang;
+    lang.mName = "Markdown";
+
+    // 1. INLINE CODE (Highest Priority)
+    // Matches `code`. We want this first so asterisks inside backticks don't trigger bold/italic.
+    lang.mTokenRegexStrings.push_back(std::make_pair("`[^`]+`", TextEditor::PaletteIndex::String));
+
+    // 2. BOLD
+    // Must come BEFORE italic, otherwise the single '*' rule will eat the first half of the '**'
+    lang.mTokenRegexStrings.push_back(std::make_pair("\\*\\*[^*]+\\*\\*", TextEditor::PaletteIndex::Keyword));
+
+    // 3. ITALIC
+    lang.mTokenRegexStrings.push_back(std::make_pair("\\*[^*]+\\*", TextEditor::PaletteIndex::KnownIdentifier));
+
+    // 4. HEADERS (Modified)
+    // Instead of eating the whole line, we ONLY color the '#' symbols.
+    // This allows text immediately following the header to still parse bold/italics!
+    lang.mTokenRegexStrings.push_back(std::make_pair("^[ \\t]*#+", TextEditor::PaletteIndex::Preprocessor));
+
+    // 5. BLOCKQUOTES (Modified)
+    // Same logic: only color the '>' symbol so the quote text can still be formatted.
+    lang.mTokenRegexStrings.push_back(std::make_pair("^[ \\t]*>", TextEditor::PaletteIndex::Comment));
+
+    // Disable standard C++ parsing rules
+    lang.mCommentStart = "";
+    lang.mCommentEnd = "";
+    lang.mSingleLineComment = "";
+    lang.mPreprocChar = 0;
+    lang.mAutoIndentation = false;
+    lang.mCaseSensitive = true;
+
+    return lang;
+}
+
 void LoadFile(const std::string& filepath, TextEditor& editor) {
     std::ifstream file(filepath);
     if (file.is_open()) {
@@ -37,7 +73,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(900, 600, "Compact Editor", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(900, 600, "Fast Notepad", NULL, NULL);
     if (!window) {
         glfwTerminate();
         return -1;
@@ -54,12 +90,23 @@ int main() {
 
     TextEditor editor;
     editor.SetPalette(TextEditor::GetDarkPalette());
-    editor.SetText("Start typing or open a file...");
+    editor.SetText("_Start *typing* or open a file..._");
+
+    // We start with Plain Text (an empty definition)
+    TextEditor::LanguageDefinition plainTextDef;
+    plainTextDef.mName = "Plain Text";
+    editor.SetLanguageDefinition(plainTextDef);
+
+    // Create a persistent Markdown definition so toggling doesn't pass temporaries
+    TextEditor::LanguageDefinition markdownDef = GetMarkdownDefinition();
 
     // State flags for file operations
     bool triggerOpen = false;
     bool triggerSaveAs = false;
     bool triggerSave = false;
+
+    // markdown toggle state
+    bool enableMarkdown = false;
 
     std::string lastFilePath = "UNINITIALIZED";  // Force an update on the first frame
 
@@ -68,7 +115,7 @@ int main() {
 
         // --- ONLY UPDATE TITLE IF THE FILE CHANGED ---
         if (currentFilePath != lastFilePath) {
-            std::string title = currentFilePath.empty() ? "Compact Editor - Untitled" : "Compact Editor - " + currentFilePath;
+            std::string title = currentFilePath.empty() ? "Fast Notepad - Untitled" : "Fast Notepad - " + currentFilePath;
             glfwSetWindowTitle(window, title.c_str());
             lastFilePath = currentFilePath;
         }
@@ -128,6 +175,25 @@ int main() {
                 if (ImGui::MenuItem("Paste", "Ctrl+V")) {
                     editor.Paste();
                 }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("View")) {
+                // --- TOGGLE MARKDOWN LOGIC ---
+                bool prevMarkdownState = enableMarkdown;
+                // Passing &enableMarkdown adds a checkmark UI to the menu item!
+                ImGui::MenuItem("Markdown Highlighting", nullptr, &enableMarkdown);
+
+                // If the user clicked it, swap the language definition
+                if (enableMarkdown != prevMarkdownState) {
+                    if (enableMarkdown) {
+                        editor.SetLanguageDefinition(markdownDef);
+                        printf("Markdown highlighting enabled.\n");
+                    } else {
+                        editor.SetLanguageDefinition(plainTextDef);
+                        printf("Markdown highlighting disabled.\n");
+                    }
+                }
+
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
