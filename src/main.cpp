@@ -10,9 +10,85 @@
 #include "imgui_impl_opengl3.h"
 #include "portable-file-dialogs.h"
 
-#define DEFAULT_FONT_INDEX (3)
+namespace {
+constexpr int kDefaultFontIndex = 3;
+constexpr int kFontMinSize = 14;
+constexpr int kFontMaxSize = 32;
+constexpr int kFontStep = 2;
+constexpr int kFontSlots = ((kFontMaxSize - kFontMinSize) / kFontStep) + 1;
+constexpr const char* kNoCommentSentinel = "\x01";
+constexpr int kWindowWidth = 900;
+constexpr int kWindowHeight = 600;
+constexpr const char* kWindowTitle = "Fast Notepad";
 
-std::string currentFilePath = "";
+struct AppState {
+    std::string currentFilePath;
+    std::string lastFilePath = "UNINITIALIZED";
+    bool triggerOpen = false;
+    bool triggerSaveAs = false;
+    bool triggerSave = false;
+    bool enableMarkdown = true;
+    bool isDarkTheme = true;
+};
+
+void ApplyNoCommentParsing(TextEditor::LanguageDefinition& lang) {
+    lang.mCommentStart = kNoCommentSentinel;
+    lang.mCommentEnd = kNoCommentSentinel;
+    lang.mSingleLineComment = kNoCommentSentinel;
+    lang.mPreprocChar = 0;
+    lang.mAutoIndentation = false;
+}
+
+const char* FindMonospaceFontPath() {
+    std::ifstream f_win("C:\\Windows\\Fonts\\consola.ttf");
+    if (f_win.good()) {
+        return "C:\\Windows\\Fonts\\consola.ttf";
+    }
+
+    std::ifstream f_lin("/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf");
+    if (f_lin.good()) {
+        return "/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf";
+    }
+
+    return nullptr;
+}
+
+void LoadEditorFonts(ImGuiIO& io, std::vector<ImFont*>& editorFonts) {
+    io.Fonts->AddFontDefault();
+    const char* fontPath = FindMonospaceFontPath();
+    if (fontPath) {
+        for (int size = kFontMinSize; size <= kFontMaxSize; size += kFontStep) {
+            editorFonts.push_back(io.Fonts->AddFontFromFileTTF(fontPath, size));
+        }
+        return;
+    }
+
+    for (int i = 0; i < kFontSlots; ++i) {
+        editorFonts.push_back(nullptr);
+    }
+}
+
+void SetMarkdownMode(bool enableMarkdown, TextEditor& editor, const TextEditor::LanguageDefinition& markdownDef, const TextEditor::LanguageDefinition& plainTextDef) {
+    editor.SetLanguageDefinition(enableMarkdown ? markdownDef : plainTextDef);
+}
+
+void ApplyTheme(bool isDarkTheme, TextEditor& editor, ImVec4& clearColor) {
+    if (isDarkTheme) {
+        ImGui::StyleColorsDark();
+        editor.SetPalette(TextEditor::GetDarkPalette());
+        clearColor = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
+    } else {
+        ImGui::StyleColorsLight();
+        editor.SetPalette(TextEditor::GetLightPalette());
+        clearColor = ImVec4(0.95f, 0.95f, 0.95f, 1.0f);
+    }
+}
+
+void ClampFontIndex(int& index, int maxSize) {
+    if (index < 0) index = 0;
+    if (index >= maxSize) index = maxSize - 1;
+}
+}  // namespace
 
 TextEditor::LanguageDefinition GetMarkdownDefinition() {
     TextEditor::LanguageDefinition lang;
@@ -28,32 +104,27 @@ TextEditor::LanguageDefinition GetMarkdownDefinition() {
 
     lang.mTokenRegexStrings.push_back(std::make_pair("^[ \\t]*>", TextEditor::PaletteIndex::Comment));
 
-    // Use a sentinel to avoid empty comment matches in the parser.
-    lang.mCommentStart = "\x01";
-    lang.mCommentEnd = "\x01";
-    lang.mSingleLineComment = "\x01";
-    lang.mPreprocChar = 0;
-    lang.mAutoIndentation = false;
+    ApplyNoCommentParsing(lang);
     lang.mCaseSensitive = true;
 
     return lang;
 }
 
-void LoadFile(const std::string& filepath, TextEditor& editor) {
+void LoadFile(const std::string& filepath, TextEditor& editor, AppState& state) {
     std::ifstream file(filepath);
     if (file.is_open()) {
         std::stringstream buffer;
         buffer << file.rdbuf();
         editor.SetText(buffer.str());
-        currentFilePath = filepath;
+        state.currentFilePath = filepath;
     }
 }
 
-void SaveFile(const std::string& filepath, TextEditor& editor) {
+void SaveFile(const std::string& filepath, TextEditor& editor, AppState& state) {
     std::ofstream file(filepath);
     if (file.is_open()) {
         file << editor.GetText();
-        currentFilePath = filepath;
+        state.currentFilePath = filepath;
     }
 }
 
@@ -64,15 +135,15 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(900, 600, "Fast Notepad", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(kWindowWidth, kWindowHeight, kWindowTitle, NULL, NULL);
     if (!window) {
         glfwTerminate();
         return -1;
     }
 
-    std::string currentFilePath = "";
+    AppState state;
     std::vector<ImFont*> editorFonts;
-    int currentFontIndex = DEFAULT_FONT_INDEX;
+    int currentFontIndex = kDefaultFontIndex;
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
@@ -84,24 +155,7 @@ int main() {
     ImGui_ImplOpenGL3_Init("#version 330");
 
     ImGuiIO& io = ImGui::GetIO();
-    io.Fonts->AddFontDefault();
-
-    const char* fontPath = nullptr;
-    std::ifstream f_win("C:\\Windows\\Fonts\\consola.ttf");
-    std::ifstream f_lin("/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf");
-    if (f_win.good())
-        fontPath = "C:\\Windows\\Fonts\\consola.ttf";
-    else if (f_lin.good())
-        fontPath = "/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf";
-
-    // Load monospace font sizes for zooming.
-    if (fontPath) {
-        for (int size = 14; size <= 32; size += 2) {
-            editorFonts.push_back(io.Fonts->AddFontFromFileTTF(fontPath, size));
-        }
-    } else {
-        for (int i = 0; i < 10; ++i) editorFonts.push_back(nullptr);
-    }
+    LoadEditorFonts(io, editorFonts);
 
     TextEditor::LanguageDefinition markdownDef = GetMarkdownDefinition();
 
@@ -111,35 +165,21 @@ int main() {
 
     TextEditor::LanguageDefinition plainTextDef;
     plainTextDef.mName = "Plain Text";
-    plainTextDef.mCommentStart = "\x01";
-    plainTextDef.mCommentEnd = "\x01";
-    plainTextDef.mSingleLineComment = "\x01";
-    plainTextDef.mPreprocChar = 0;
-    plainTextDef.mAutoIndentation = false;
+    ApplyNoCommentParsing(plainTextDef);
     editor.SetLanguageDefinition(plainTextDef);
 
-    bool triggerOpen = false;
-    bool triggerSaveAs = false;
-    bool triggerSave = false;
+    SetMarkdownMode(state.enableMarkdown, editor, markdownDef, plainTextDef);
 
-    bool enableMarkdown = true;
-
-    if (enableMarkdown) {
-        editor.SetLanguageDefinition(markdownDef);
-    }
-
-    std::string lastFilePath = "UNINITIALIZED";
-
-    bool isDarkTheme = true;
     ImVec4 clear_color = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        if (currentFilePath != lastFilePath) {
-            std::string title = currentFilePath.empty() ? "Fast Notepad - Untitled" : "Fast Notepad - " + currentFilePath;
+        if (state.currentFilePath != state.lastFilePath) {
+            std::string title = state.currentFilePath.empty() ? "Fast Notepad - Untitled"
+                                                              : "Fast Notepad - " + state.currentFilePath;
             glfwSetWindowTitle(window, title.c_str());
-            lastFilePath = currentFilePath;
+            state.lastFilePath = state.currentFilePath;
         }
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -147,12 +187,12 @@ int main() {
         ImGui::NewFrame();
 
         ImGuiIO& io = ImGui::GetIO();
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) triggerOpen = true;
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) state.triggerOpen = true;
         if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
             if (io.KeyShift) {
-                triggerSaveAs = true;
+                state.triggerSaveAs = true;
             } else {
-                triggerSave = true;
+                state.triggerSave = true;
             }
         }
         if (io.KeyCtrl && io.MouseWheel != 0.0f) {
@@ -163,26 +203,24 @@ int main() {
         }
         if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Equal, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd, false) || ImGui::IsKeyPressed(ImGuiKey_RightBracket, false))) currentFontIndex++;
         if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Minus, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract, false))) currentFontIndex--;
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = DEFAULT_FONT_INDEX;
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = kDefaultFontIndex;
 
-        if (currentFontIndex < 0) currentFontIndex = 0;
-        if (currentFontIndex >= (int)editorFonts.size()) currentFontIndex = (int)editorFonts.size() - 1;
-
+        ClampFontIndex(currentFontIndex, (int)editorFonts.size());
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("New")) {
                     editor.SetText("");
-                    currentFilePath = "";
+                    state.currentFilePath = "";
                 }
 
                 if (ImGui::MenuItem("Open", "Ctrl+O")) {
-                    triggerOpen = true;
+                    state.triggerOpen = true;
                 }
                 if (ImGui::MenuItem("Save", "Ctrl+S")) {
-                    triggerSave = true;
+                    state.triggerSave = true;
                 }
                 if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {
-                    triggerSaveAs = true;
+                    state.triggerSaveAs = true;
                 }
 
                 ImGui::Separator();
@@ -211,33 +249,19 @@ int main() {
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("View")) {
-                bool prevMarkdownState = enableMarkdown;
-                ImGui::MenuItem("Markdown Highlighting", nullptr, &enableMarkdown);
+                bool prevMarkdownState = state.enableMarkdown;
+                ImGui::MenuItem("Markdown Highlighting", nullptr, &state.enableMarkdown);
 
-                if (enableMarkdown != prevMarkdownState) {
-                    if (enableMarkdown) {
-                        editor.SetLanguageDefinition(markdownDef);
-                        printf("Markdown highlighting enabled.\n");
-                    } else {
-                        editor.SetLanguageDefinition(plainTextDef);
-                        printf("Markdown highlighting disabled.\n");
-                    }
+                if (state.enableMarkdown != prevMarkdownState) {
+                    SetMarkdownMode(state.enableMarkdown, editor, markdownDef, plainTextDef);
                 }
 
                 ImGui::Separator();
 
-                bool prevThemeState = isDarkTheme;
-                ImGui::MenuItem("Dark Theme", nullptr, &isDarkTheme);
-                if (isDarkTheme != prevThemeState) {
-                    if (isDarkTheme) {
-                        ImGui::StyleColorsDark();
-                        editor.SetPalette(TextEditor::GetDarkPalette());
-                        clear_color = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
-                    } else {
-                        ImGui::StyleColorsLight();
-                        editor.SetPalette(TextEditor::GetLightPalette());
-                        clear_color = ImVec4(0.95f, 0.95f, 0.95f, 1.0f);
-                    }
+                bool prevThemeState = state.isDarkTheme;
+                ImGui::MenuItem("Dark Theme", nullptr, &state.isDarkTheme);
+                if (state.isDarkTheme != prevThemeState) {
+                    ApplyTheme(state.isDarkTheme, editor, clear_color);
                 }
 
                 if (ImGui::MenuItem("Zoom In", "Ctrl++")) {
@@ -247,7 +271,7 @@ int main() {
                     currentFontIndex--;
                 }
                 if (ImGui::MenuItem("Reset Zoom", "Ctrl+0")) {
-                    currentFontIndex = DEFAULT_FONT_INDEX;
+                    currentFontIndex = kDefaultFontIndex;
                 }
 
                 ImGui::EndMenu();
@@ -283,28 +307,27 @@ int main() {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
 
-        // Run file dialogs after rendering to avoid UI blocking artifacts.
-        if (triggerOpen) {
+        if (state.triggerOpen) {
             auto f = pfd::open_file("Choose text file", ".", {"Text Files", "*.txt *.md *.cpp *.h", "All Files", "*"});
             if (!f.result().empty()) {
-                LoadFile(f.result()[0], editor);
+                LoadFile(f.result()[0], editor, state);
             }
-            triggerOpen = false;
+            state.triggerOpen = false;
         }
-        if (triggerSave) {
-            if (currentFilePath.empty()) {
-                triggerSaveAs = true;
+        if (state.triggerSave) {
+            if (state.currentFilePath.empty()) {
+                state.triggerSaveAs = true;
             } else {
-                SaveFile(currentFilePath, editor);
+                SaveFile(state.currentFilePath, editor, state);
             }
-            triggerSave = false;
+            state.triggerSave = false;
         }
-        if (triggerSaveAs) {
+        if (state.triggerSaveAs) {
             auto f = pfd::save_file("Save file", ".", {"Text Files", "*.txt *.md"});
             if (!f.result().empty()) {
-                SaveFile(f.result(), editor);
+                SaveFile(f.result(), editor, state);
             }
-            triggerSaveAs = false;
+            state.triggerSaveAs = false;
         }
     }
 
