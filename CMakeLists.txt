@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(CompactEditor CXX)
+project(FastNotepad CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -37,7 +37,14 @@ if(NOT textedit_POPULATED)
     file(WRITE "${textedit_SOURCE_DIR}/TextEditor.cpp" "${TEXT_EDITOR_CPP}")
 endif()
 
-# 4. Create ImGui Static Library
+# 4. Fetch Portable File Dialogs (NEW)
+FetchContent_Declare(pfd GIT_REPOSITORY https://github.com/samhocevar/portable-file-dialogs.git GIT_TAG main)
+FetchContent_GetProperties(pfd)
+if(NOT pfd_POPULATED)
+    FetchContent_Populate(pfd)
+endif()
+
+# 5. Create ImGui Static Library
 set(IMGUI_SOURCES
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -50,12 +57,16 @@ add_library(ImGuiLib STATIC ${IMGUI_SOURCES})
 target_include_directories(ImGuiLib PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
 target_link_libraries(ImGuiLib PRIVATE glfw ${OPENGL_LIBRARIES})
 
-# 5. Define our executable (Now including TextEditor.cpp)
-add_executable(CompactEditor 
+# 6. Define our executable (Now including TextEditor.cpp)
+add_executable(FastNotepad 
     src/main.cpp 
     ${textedit_SOURCE_DIR}/TextEditor.cpp
 )
 
 # Make sure our app can find the TextEditor.h header file
-target_include_directories(CompactEditor PRIVATE ${textedit_SOURCE_DIR} ${imgui_SOURCE_DIR})
-target_link_libraries(CompactEditor PRIVATE glfw ImGuiLib ${OPENGL_LIBRARIES})
+target_include_directories(FastNotepad PRIVATE 
+    ${textedit_SOURCE_DIR} 
+    ${imgui_SOURCE_DIR} 
+    ${pfd_SOURCE_DIR}
+)
+target_link_libraries(FastNotepad PRIVATE glfw ImGuiLib ${OPENGL_LIBRARIES})

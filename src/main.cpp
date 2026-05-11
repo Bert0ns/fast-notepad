@@ -1,11 +1,34 @@
 #include <GLFW/glfw3.h>
 
+#include <fstream>
 #include <iostream>
+#include <sstream>
 
-#include "TextEditor.h"  // Our new text editor component!
+#include "TextEditor.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "portable-file-dialogs.h"
+
+std::string currentFilePath = "";
+
+void LoadFile(const std::string& filepath, TextEditor& editor) {
+    std::ifstream file(filepath);
+    if (file.is_open()) {
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        editor.SetText(buffer.str());
+        currentFilePath = filepath;
+    }
+}
+
+void SaveFile(const std::string& filepath, TextEditor& editor) {
+    std::ofstream file(filepath);
+    if (file.is_open()) {
+        file << editor.GetText();
+        currentFilePath = filepath;
+    }
+}
 
 int main() {
     if (!glfwInit()) return -1;
@@ -21,7 +44,7 @@ int main() {
     }
 
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);  // Vsync
+    glfwSwapInterval(1);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -29,30 +52,59 @@ int main() {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
-    // --- INITIALIZE THE TEXT EDITOR ---
     TextEditor editor;
     editor.SetPalette(TextEditor::GetDarkPalette());
-    // For now, we will just use a blank language definition.
-    // We will build the custom Markdown one later.
-    editor.SetText("Welcome to your ultra-compact text editor.\nStart typing here...");
+    editor.SetText("Start typing or open a file...");
+
+    // State flags for file operations
+    bool triggerOpen = false;
+    bool triggerSaveAs = false;
+    bool triggerSave = false;
+
+    std::string lastFilePath = "UNINITIALIZED";  // Force an update on the first frame
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+
+        // --- ONLY UPDATE TITLE IF THE FILE CHANGED ---
+        if (currentFilePath != lastFilePath) {
+            std::string title = currentFilePath.empty() ? "Compact Editor - Untitled" : "Compact Editor - " + currentFilePath;
+            glfwSetWindowTitle(window, title.c_str());
+            lastFilePath = currentFilePath;
+        }
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // 1. --- DRAW THE TOP MENU BAR ---
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) triggerOpen = true;
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+            if (io.KeyShift) {
+                triggerSaveAs = true;
+            } else {
+                triggerSave = true;
+            }
+        }
+
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("New")) {
                     editor.SetText("");
+                    currentFilePath = "";
                 }
-                if (ImGui::MenuItem("Open", "Ctrl+O")) { /* TODO */
+
+                // Set flags instead of blocking the UI thread immediately
+                if (ImGui::MenuItem("Open", "Ctrl+O")) {
+                    triggerOpen = true;
                 }
-                if (ImGui::MenuItem("Save", "Ctrl+S")) { /* TODO */
+                if (ImGui::MenuItem("Save", "Ctrl+S")) {
+                    triggerSave = true;
                 }
+                if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {
+                    triggerSaveAs = true;
+                }
+
                 ImGui::Separator();
                 if (ImGui::MenuItem("Exit")) {
                     glfwSetWindowShouldClose(window, true);
@@ -60,17 +112,17 @@ int main() {
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Edit")) {
-                if (ImGui::MenuItem("Undo", "Ctrl+Z")) {
+                if (ImGui::MenuItem("Undo", "Ctrl+Z", nullptr, editor.CanUndo())) {
                     editor.Undo();
                 }
-                if (ImGui::MenuItem("Redo", "Ctrl+Y")) {
+                if (ImGui::MenuItem("Redo", "Ctrl+Y", nullptr, editor.CanRedo())) {
                     editor.Redo();
                 }
                 ImGui::Separator();
-                if (ImGui::MenuItem("Cut", "Ctrl+X")) {
+                if (ImGui::MenuItem("Cut", "Ctrl+X", nullptr, editor.HasSelection())) {
                     editor.Cut();
                 }
-                if (ImGui::MenuItem("Copy", "Ctrl+C")) {
+                if (ImGui::MenuItem("Copy", "Ctrl+C", nullptr, editor.HasSelection())) {
                     editor.Copy();
                 }
                 if (ImGui::MenuItem("Paste", "Ctrl+V")) {
@@ -78,39 +130,54 @@ int main() {
                 }
                 ImGui::EndMenu();
             }
-            if (ImGui::BeginMenu("View")) {
-                // We will implement these toggles in the next steps
-                ImGui::MenuItem("Markdown Highlighting");
-                ImGui::MenuItem("Word Wrap");
-                ImGui::EndMenu();
-            }
             ImGui::EndMainMenuBar();
         }
 
-        // 2. --- DRAW THE MAIN WORKSPACE ---
-        // Get the area of the screen *below* the menu bar
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->WorkPos);
         ImGui::SetNextWindowSize(viewport->WorkSize);
 
-        // Force the window to be borderless, static, and fill the screen
+        // ADDED: ImGuiWindowFlags_NoBringToFrontOnFocus (Fixes the flickering conflict)
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
                                         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                                        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+                                        ImGuiWindowFlags_NoBringToFrontOnFocus;
 
-        // Create the window and render the editor inside it
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));  // Remove padding around editor
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         ImGui::Begin("MainWorkspace", nullptr, window_flags);
         editor.Render("TextEditor");
         ImGui::End();
         ImGui::PopStyleVar();
 
-        // --- RENDER EVERYTHING TO THE SCREEN ---
         ImGui::Render();
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
+
+        // --- HANDLE FILE DIALOGS AFTER RENDERING ---
+        // This ensures the UI doesn't freeze or glitch while the OS window is open
+        if (triggerOpen) {
+            auto f = pfd::open_file("Choose text file", ".", {"Text Files", "*.txt *.md *.cpp *.h", "All Files", "*"});
+            if (!f.result().empty()) {
+                LoadFile(f.result()[0], editor);
+            }
+            triggerOpen = false;
+        }
+        if (triggerSave) {
+            if (currentFilePath.empty()) {
+                triggerSaveAs = true;
+            } else {
+                SaveFile(currentFilePath, editor);
+            }
+            triggerSave = false;
+        }
+        if (triggerSaveAs) {
+            auto f = pfd::save_file("Save file", ".", {"Text Files", "*.txt *.md"});
+            if (!f.result().empty()) {
+                SaveFile(f.result(), editor);
+            }
+            triggerSaveAs = false;
+        }
     }
 
     ImGui_ImplOpenGL3_Shutdown();
