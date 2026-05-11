@@ -1,5 +1,6 @@
 #include <GLFW/glfw3.h>
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -92,26 +93,43 @@ void ClampFontIndex(int& index, int maxSize) {
     if (index >= maxSize) index = maxSize - 1;
 }
 
-bool SetWindowIcon(GLFWwindow* window, const char* primaryPath, const char* fallbackPath) {
+std::vector<std::string> GetIconSearchPaths() {
+    std::vector<std::string> paths;
+    paths.emplace_back("icon.png");
+    paths.emplace_back("../icon.png");
+
+    std::error_code ec;
+    auto cwd = std::filesystem::current_path(ec);
+    if (!ec) {
+        paths.push_back((cwd / "icon.png").string());
+        paths.push_back((cwd.parent_path() / "icon.png").string());
+    }
+
+    return paths;
+}
+
+bool SetWindowIcon(GLFWwindow* window) {
     int width = 0;
     int height = 0;
     int channels = 0;
 
-    stbi_uc* pixels = stbi_load(primaryPath, &width, &height, &channels, STBI_rgb_alpha);
-    if (!pixels && fallbackPath) {
-        pixels = stbi_load(fallbackPath, &width, &height, &channels, STBI_rgb_alpha);
-    }
-    if (!pixels) {
-        return false;
+    for (const auto& path : GetIconSearchPaths()) {
+        stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+        if (!pixels) {
+            continue;
+        }
+
+        GLFWimage image;
+        image.width = width;
+        image.height = height;
+        image.pixels = pixels;
+        glfwSetWindowIcon(window, 1, &image);
+        stbi_image_free(pixels);
+        return true;
     }
 
-    GLFWimage image;
-    image.width = width;
-    image.height = height;
-    image.pixels = pixels;
-    glfwSetWindowIcon(window, 1, &image);
-    stbi_image_free(pixels);
-    return true;
+    std::cerr << "Failed to load icon.png: " << (stbi_failure_reason() ? stbi_failure_reason() : "unknown") << "\n";
+    return false;
 }
 }  // namespace
 
@@ -167,7 +185,7 @@ int main() {
         return -1;
     }
 
-    SetWindowIcon(window, "icon.png", "../icon.png");
+    SetWindowIcon(window);
 
     AppState state;
     std::vector<ImFont*> editorFonts;
