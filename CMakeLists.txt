@@ -44,7 +44,14 @@ if(NOT pfd_POPULATED)
     FetchContent_Populate(pfd)
 endif()
 
-# 5. Create ImGui Static Library
+# 5. Fetch stb (image loader)
+FetchContent_Declare(stb GIT_REPOSITORY https://github.com/nothings/stb.git GIT_TAG master)
+FetchContent_GetProperties(stb)
+if(NOT stb_POPULATED)
+    FetchContent_Populate(stb)
+endif()
+
+# 6. Create ImGui Static Library
 set(IMGUI_SOURCES
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -57,7 +64,7 @@ add_library(ImGuiLib STATIC ${IMGUI_SOURCES})
 target_include_directories(ImGuiLib PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
 target_link_libraries(ImGuiLib PRIVATE glfw ${OPENGL_LIBRARIES})
 
-# 6. Define our executable (Now including TextEditor.cpp)
+# 7. Define our executable (Now including TextEditor.cpp)
 add_executable(FastNotepad 
     src/main.cpp 
     ${textedit_SOURCE_DIR}/TextEditor.cpp
@@ -68,5 +75,6 @@ target_include_directories(FastNotepad PRIVATE
     ${textedit_SOURCE_DIR} 
     ${imgui_SOURCE_DIR} 
     ${pfd_SOURCE_DIR}
+    ${stb_SOURCE_DIR}
 )
 target_link_libraries(FastNotepad PRIVATE glfw ImGuiLib ${OPENGL_LIBRARIES})

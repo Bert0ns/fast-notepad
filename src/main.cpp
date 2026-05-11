@@ -4,6 +4,9 @@
 #include <iostream>
 #include <sstream>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include "TextEditor.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -88,6 +91,28 @@ void ClampFontIndex(int& index, int maxSize) {
     if (index < 0) index = 0;
     if (index >= maxSize) index = maxSize - 1;
 }
+
+bool SetWindowIcon(GLFWwindow* window, const char* primaryPath, const char* fallbackPath) {
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+
+    stbi_uc* pixels = stbi_load(primaryPath, &width, &height, &channels, STBI_rgb_alpha);
+    if (!pixels && fallbackPath) {
+        pixels = stbi_load(fallbackPath, &width, &height, &channels, STBI_rgb_alpha);
+    }
+    if (!pixels) {
+        return false;
+    }
+
+    GLFWimage image;
+    image.width = width;
+    image.height = height;
+    image.pixels = pixels;
+    glfwSetWindowIcon(window, 1, &image);
+    stbi_image_free(pixels);
+    return true;
+}
 }  // namespace
 
 TextEditor::LanguageDefinition GetMarkdownDefinition() {
@@ -141,6 +166,8 @@ int main() {
         glfwTerminate();
         return -1;
     }
+
+    SetWindowIcon(window, "icon.png", "../icon.png");
 
     AppState state;
     std::vector<ImFont*> editorFonts;
