@@ -51,6 +51,7 @@ struct AppState {
     bool findFailed = false;
     std::array<char, 256> findBuffer = {0};
     bool wrapSearch = true;
+    bool focusEditorOnStart = true;
 };
 
 void ApplyNoCommentParsing(TextEditor::LanguageDefinition& lang) {
@@ -356,9 +357,14 @@ void RenderMenuBar(AppState& state,
 void RenderEditorWindow(TextEditor& editor,
                         const std::vector<ImFont*>& editorFonts,
                         int currentFontIndex,
-                        ImGuiWindowFlags windowFlags) {
+                        ImGuiWindowFlags windowFlags,
+                        bool& focusEditorOnce) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::Begin("MainWorkspace", nullptr, windowFlags);
+    if (focusEditorOnce) {
+        ImGui::SetKeyboardFocusHere();
+        focusEditorOnce = false;
+    }
     if (editorFonts[currentFontIndex] != nullptr) {
         ImGui::PushFont(editorFonts[currentFontIndex]);
     }
@@ -370,6 +376,19 @@ void RenderEditorWindow(TextEditor& editor,
     }
     ImGui::End();
     ImGui::PopStyleVar();
+}
+
+void SelectAllText(TextEditor& editor) {
+    const auto lines = editor.GetTextLines();
+    if (lines.empty()) {
+        editor.SetCursorPosition({0, 0});
+        return;
+    }
+
+    const int lastLine = static_cast<int>(lines.size() - 1);
+    const int endCol = ByteIndexToColumn(lines[lastLine], static_cast<int>(lines[lastLine].size()), editor.GetTabSize());
+    editor.SetSelection({0, 0}, {lastLine, endCol});
+    editor.SetCursorPosition({lastLine, endCol});
 }
 
 void RenderFindPanel(AppState& state, TextEditor& editor, ImGuiViewport* viewport) {
@@ -579,6 +598,7 @@ int main() {
     TextEditor editor;
     editor.SetPalette(TextEditor::GetDarkPalette());
     editor.SetText("Start *typing* or open a file...");
+    SelectAllText(editor);
 
     TextEditor::LanguageDefinition plainTextDef;
     plainTextDef.mName = "Plain Text";
@@ -612,7 +632,7 @@ int main() {
                                        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                                        ImGuiWindowFlags_NoBringToFrontOnFocus;
 
-        RenderEditorWindow(editor, editorFonts, currentFontIndex, windowFlags);
+        RenderEditorWindow(editor, editorFonts, currentFontIndex, windowFlags, state.focusEditorOnStart);
         RenderFindPanel(state, editor, viewport);
 
         ImGui::Render();
