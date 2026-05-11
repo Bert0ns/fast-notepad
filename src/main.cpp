@@ -1,19 +1,22 @@
 #include <GLFW/glfw3.h>
+
 #include <iostream>
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
+
 int main() {
-    // 1. Initialize the GLFW library
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW\n";
         return -1;
     }
 
-    // 2. Request an OpenGL 3.3 Core Profile context (Fast, modern, lightweight)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    // 3. Create the OS window
     GLFWwindow* window = glfwCreateWindow(800, 600, "Compact Editor", NULL, NULL);
     if (!window) {
         std::cerr << "Failed to create GLFW window\n";
@@ -21,26 +24,51 @@ int main() {
         return -1;
     }
 
-    // 4. Make the window the current drawing context
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);  // Enable vsync
 
-    // Enable vsync (Syncs drawing to your monitor's refresh rate to prevent screen tearing)
-    glfwSwapInterval(1);
+    // --- SETUP DEAR IMGUI ---
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    (void)io;
 
-    // 5. The Main Application Loop
+    // Setup ImGui style (We will customize this later for elegance)
+    ImGui::StyleColorsDark();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
+    // ------------------------
+
     while (!glfwWindowShouldClose(window)) {
-        // Clear the screen to a sleek dark grey background
+        glfwPollEvents();
+
+        // --- START NEW IMGUI FRAME ---
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // --- UI CODE GOES HERE ---
+        // For now, we show the massive demo window to prove it works
+        ImGui::ShowDemoWindow();
+
+        // --- RENDER ---
+        ImGui::Render();
         glClearColor(0.12f, 0.12f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Swap the front and back buffers to display the new frame
-        glfwSwapBuffers(window);
+        // Draw the ImGui data to the screen
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        // Listen for OS events (mouse clicks, keyboard typing, window resizing)
-        glfwPollEvents();
+        glfwSwapBuffers(window);
     }
 
-    // 6. Clean up and exit gracefully
+    // --- CLEANUP ---
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
