@@ -113,6 +113,7 @@ std::vector<std::string> GetIconSearchPaths() {
     std::vector<std::string> paths;
     paths.emplace_back("icon.png");
     paths.emplace_back("../icon.png");
+    paths.emplace_back("../assets/icon.png");
 
     std::error_code ec;
     auto cwd = std::filesystem::current_path(ec);
@@ -245,7 +246,7 @@ int main() {
 
     TextEditor editor;
     editor.SetPalette(TextEditor::GetDarkPalette());
-    editor.SetText("_Start *typing* or open a file..._");
+    editor.SetText("Start *typing* or open a file...");
 
     TextEditor::LanguageDefinition plainTextDef;
     plainTextDef.mName = "Plain Text";
@@ -364,10 +365,10 @@ int main() {
 
                 ImGui::EndMenu();
             }
-            ImGui::EndMainMenuBar();
             if (menuFont) {
                 ImGui::PopFont();
             }
+            ImGui::EndMainMenuBar();
         }
         ImGui::PopStyleVar();
 
