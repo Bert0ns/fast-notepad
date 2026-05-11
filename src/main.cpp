@@ -8,12 +8,12 @@
 #include "resource.h"
 #endif
 
+#include <array>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include <array>
-#include <cstdio>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "TextEditor.h"
@@ -130,6 +130,12 @@ void UpdateFindBufferFromSelection(AppState& state, TextEditor& editor) {
     std::snprintf(state.findBuffer.data(), state.findBuffer.size(), "%s", selected.c_str());
 }
 
+void OpenFindPanel(AppState& state, TextEditor& editor) {
+    UpdateFindBufferFromSelection(state, editor);
+    state.showFindPanel = true;
+    state.focusFindInput = true;
+}
+
 int Utf8CharLength(unsigned char c) {
     if ((c & 0xFE) == 0xFC) return 6;
     if ((c & 0xFC) == 0xF8) return 5;
@@ -217,6 +223,242 @@ bool FindNextMatch(TextEditor& editor, const std::string& query, bool wrap, bool
     return false;
 }
 
+void UpdateWindowTitle(GLFWwindow* window, AppState& state) {
+    if (state.currentFilePath != state.lastFilePath) {
+        std::string title = state.currentFilePath.empty() ? "Fast Notepad - Untitled"
+                                                          : "Fast Notepad - " + state.currentFilePath;
+        glfwSetWindowTitle(window, title.c_str());
+        state.lastFilePath = state.currentFilePath;
+    }
+}
+
+void HandleGlobalShortcuts(AppState& state, TextEditor& editor, ImGuiIO& io, int& currentFontIndex) {
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) state.triggerOpen = true;
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+        if (io.KeyShift) {
+            state.triggerSaveAs = true;
+        } else {
+            state.triggerSave = true;
+        }
+    }
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F, false)) {
+        OpenFindPanel(state, editor);
+    }
+
+    if (io.KeyCtrl && io.MouseWheel != 0.0f) {
+        if (io.MouseWheel > 0)
+            currentFontIndex++;
+        else
+            currentFontIndex--;
+    }
+    if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Equal, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd, false) || ImGui::IsKeyPressed(ImGuiKey_RightBracket, false))) currentFontIndex++;
+    if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Minus, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract, false))) currentFontIndex--;
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = kDefaultFontIndex;
+
+    if (state.showFindPanel && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+        state.showFindPanel = false;
+    }
+}
+
+void RenderMenuBar(AppState& state,
+                   TextEditor& editor,
+                   const TextEditor::LanguageDefinition& markdownDef,
+                   const TextEditor::LanguageDefinition& plainTextDef,
+                   ImFont* menuFont,
+                   ImVec4& clearColor,
+                   int& currentFontIndex) {
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kMenuBarPaddingX, kMenuBarPaddingY));
+    if (ImGui::BeginMainMenuBar()) {
+        if (menuFont) {
+            ImGui::PushFont(menuFont);
+        }
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New")) {
+                editor.SetText("");
+                state.currentFilePath = "";
+            }
+
+            if (ImGui::MenuItem("Open", "Ctrl+O")) {
+                state.triggerOpen = true;
+            }
+            if (ImGui::MenuItem("Save", "Ctrl+S")) {
+                state.triggerSave = true;
+            }
+            if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {
+                state.triggerSaveAs = true;
+            }
+
+            ImGui::Separator();
+            if (ImGui::MenuItem("Exit")) {
+                glfwSetWindowShouldClose(glfwGetCurrentContext(), true);
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Edit")) {
+            if (ImGui::MenuItem("Undo", "Ctrl+Z", nullptr, editor.CanUndo())) {
+                editor.Undo();
+            }
+            if (ImGui::MenuItem("Redo", "Ctrl+Y", nullptr, editor.CanRedo())) {
+                editor.Redo();
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Cut", "Ctrl+X", nullptr, editor.HasSelection())) {
+                editor.Cut();
+            }
+            if (ImGui::MenuItem("Copy", "Ctrl+C", nullptr, editor.HasSelection())) {
+                editor.Copy();
+            }
+            if (ImGui::MenuItem("Paste", "Ctrl+V")) {
+                editor.Paste();
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Find", "Ctrl+F")) {
+                OpenFindPanel(state, editor);
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("View")) {
+            bool prevMarkdownState = state.enableMarkdown;
+            ImGui::MenuItem("Markdown Highlighting", nullptr, &state.enableMarkdown);
+
+            if (state.enableMarkdown != prevMarkdownState) {
+                SetMarkdownMode(state.enableMarkdown, editor, markdownDef, plainTextDef);
+            }
+
+            ImGui::Separator();
+
+            bool prevThemeState = state.isDarkTheme;
+            ImGui::MenuItem("Dark Theme", nullptr, &state.isDarkTheme);
+            if (state.isDarkTheme != prevThemeState) {
+                ApplyTheme(state.isDarkTheme, editor, clearColor);
+            }
+
+            if (ImGui::MenuItem("Zoom In", "Ctrl++")) {
+                currentFontIndex++;
+            }
+            if (ImGui::MenuItem("Zoom Out", "Ctrl+-")) {
+                currentFontIndex--;
+            }
+            if (ImGui::MenuItem("Reset Zoom", "Ctrl+0")) {
+                currentFontIndex = kDefaultFontIndex;
+            }
+
+            ImGui::EndMenu();
+        }
+        if (menuFont) {
+            ImGui::PopFont();
+        }
+        ImGui::EndMainMenuBar();
+    }
+    ImGui::PopStyleVar();
+}
+
+void RenderEditorWindow(TextEditor& editor,
+                        const std::vector<ImFont*>& editorFonts,
+                        int currentFontIndex,
+                        ImGuiWindowFlags windowFlags) {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("MainWorkspace", nullptr, windowFlags);
+    if (editorFonts[currentFontIndex] != nullptr) {
+        ImGui::PushFont(editorFonts[currentFontIndex]);
+    }
+
+    editor.Render("TextEditor");
+
+    if (editorFonts[currentFontIndex] != nullptr) {
+        ImGui::PopFont();
+    }
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
+void RenderFindPanel(AppState& state, TextEditor& editor, ImGuiViewport* viewport) {
+    if (!state.showFindPanel) return;
+
+    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 340.0f,
+                                   viewport->WorkPos.y + 12.0f),
+                            ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(320.0f, 0.0f), ImGuiCond_Always);
+    ImGuiWindowFlags findFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
+                                 ImGuiWindowFlags_AlwaysAutoResize;
+    if (ImGui::Begin("Find", &state.showFindPanel, findFlags)) {
+        if (state.focusFindInput) {
+            ImGui::SetKeyboardFocusHere();
+            state.focusFindInput = false;
+        }
+
+        ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
+        bool submit = ImGui::InputText("##FindInput", state.findBuffer.data(), state.findBuffer.size(), inputFlags);
+        ImGui::SameLine();
+        if (ImGui::Button("Find Next")) {
+            submit = true;
+        }
+
+        ImGui::SameLine();
+        ImGui::Checkbox("Wrap", &state.wrapSearch);
+
+        if (submit) {
+            std::string query(state.findBuffer.data());
+            state.findFailed = !FindNextMatch(editor, query, state.wrapSearch, state.findWrapped);
+            if (!state.findFailed) {
+                state.showFindPanel = true;
+            }
+        }
+
+        if (state.findFailed) {
+            ImGui::TextUnformatted("No matches found.");
+        } else if (state.findWrapped) {
+            ImGui::TextUnformatted("Wrapped to start.");
+        }
+    }
+    ImGui::End();
+}
+
+void LoadFile(const std::string& filepath, TextEditor& editor, AppState& state) {
+    std::ifstream file(filepath);
+    if (file.is_open()) {
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        editor.SetText(buffer.str());
+        state.currentFilePath = filepath;
+    }
+}
+
+void SaveFile(const std::string& filepath, TextEditor& editor, AppState& state) {
+    std::ofstream file(filepath);
+    if (file.is_open()) {
+        file << editor.GetText();
+        state.currentFilePath = filepath;
+    }
+}
+
+void HandleFileDialogs(AppState& state, TextEditor& editor) {
+    if (state.triggerOpen) {
+        auto f = pfd::open_file("Choose text file", ".", {"Text Files", "*.txt *.md *.cpp *.h", "All Files", "*"});
+        if (!f.result().empty()) {
+            LoadFile(f.result()[0], editor, state);
+        }
+        state.triggerOpen = false;
+    }
+    if (state.triggerSave) {
+        if (state.currentFilePath.empty()) {
+            state.triggerSaveAs = true;
+        } else {
+            SaveFile(state.currentFilePath, editor, state);
+        }
+        state.triggerSave = false;
+    }
+    if (state.triggerSaveAs) {
+        auto f = pfd::save_file("Save file", ".", {"Text Files", "*.txt *.md"});
+        if (!f.result().empty()) {
+            SaveFile(f.result(), editor, state);
+        }
+        state.triggerSaveAs = false;
+    }
+}
+
+
+
 std::vector<std::string> GetIconSearchPaths() {
     std::vector<std::string> paths;
     paths.emplace_back("icon.png");
@@ -299,24 +541,6 @@ TextEditor::LanguageDefinition GetMarkdownDefinition() {
     return lang;
 }
 
-void LoadFile(const std::string& filepath, TextEditor& editor, AppState& state) {
-    std::ifstream file(filepath);
-    if (file.is_open()) {
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        editor.SetText(buffer.str());
-        state.currentFilePath = filepath;
-    }
-}
-
-void SaveFile(const std::string& filepath, TextEditor& editor, AppState& state) {
-    std::ofstream file(filepath);
-    if (file.is_open()) {
-        file << editor.GetText();
-        state.currentFilePath = filepath;
-    }
-}
-
 int main() {
     if (!glfwInit()) return -1;
 
@@ -368,194 +592,28 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        if (state.currentFilePath != state.lastFilePath) {
-            std::string title = state.currentFilePath.empty() ? "Fast Notepad - Untitled"
-                                                              : "Fast Notepad - " + state.currentFilePath;
-            glfwSetWindowTitle(window, title.c_str());
-            state.lastFilePath = state.currentFilePath;
-        }
+        UpdateWindowTitle(window, state);
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
         ImGuiIO& io = ImGui::GetIO();
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) state.triggerOpen = true;
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
-            if (io.KeyShift) {
-                state.triggerSaveAs = true;
-            } else {
-                state.triggerSave = true;
-            }
-        }
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F, false)) {
-            UpdateFindBufferFromSelection(state, editor);
-            state.showFindPanel = true;
-            state.focusFindInput = true;
-        }
-        if (io.KeyCtrl && io.MouseWheel != 0.0f) {
-            if (io.MouseWheel > 0)
-                currentFontIndex++;
-            else
-                currentFontIndex--;
-        }
-        if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Equal, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd, false) || ImGui::IsKeyPressed(ImGuiKey_RightBracket, false))) currentFontIndex++;
-        if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Minus, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract, false))) currentFontIndex--;
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = kDefaultFontIndex;
-
-        if (state.showFindPanel && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
-            state.showFindPanel = false;
-        }
+        HandleGlobalShortcuts(state, editor, io, currentFontIndex);
 
         ClampFontIndex(currentFontIndex, (int)editorFonts.size());
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kMenuBarPaddingX, kMenuBarPaddingY));
-        if (ImGui::BeginMainMenuBar()) {
-            if (menuFont) {
-                ImGui::PushFont(menuFont);
-            }
-            if (ImGui::BeginMenu("File")) {
-                if (ImGui::MenuItem("New")) {
-                    editor.SetText("");
-                    state.currentFilePath = "";
-                }
-
-                if (ImGui::MenuItem("Open", "Ctrl+O")) {
-                    state.triggerOpen = true;
-                }
-                if (ImGui::MenuItem("Save", "Ctrl+S")) {
-                    state.triggerSave = true;
-                }
-                if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {
-                    state.triggerSaveAs = true;
-                }
-
-                ImGui::Separator();
-                if (ImGui::MenuItem("Exit")) {
-                    glfwSetWindowShouldClose(window, true);
-                }
-                ImGui::EndMenu();
-            }
-            if (ImGui::BeginMenu("Edit")) {
-                if (ImGui::MenuItem("Undo", "Ctrl+Z", nullptr, editor.CanUndo())) {
-                    editor.Undo();
-                }
-                if (ImGui::MenuItem("Redo", "Ctrl+Y", nullptr, editor.CanRedo())) {
-                    editor.Redo();
-                }
-                ImGui::Separator();
-                if (ImGui::MenuItem("Cut", "Ctrl+X", nullptr, editor.HasSelection())) {
-                    editor.Cut();
-                }
-                if (ImGui::MenuItem("Copy", "Ctrl+C", nullptr, editor.HasSelection())) {
-                    editor.Copy();
-                }
-                if (ImGui::MenuItem("Paste", "Ctrl+V")) {
-                    editor.Paste();
-                }
-                ImGui::Separator();
-                if (ImGui::MenuItem("Find", "Ctrl+F")) {
-                    UpdateFindBufferFromSelection(state, editor);
-                    state.showFindPanel = true;
-                    state.focusFindInput = true;
-                }
-                ImGui::EndMenu();
-            }
-            if (ImGui::BeginMenu("View")) {
-                bool prevMarkdownState = state.enableMarkdown;
-                ImGui::MenuItem("Markdown Highlighting", nullptr, &state.enableMarkdown);
-
-                if (state.enableMarkdown != prevMarkdownState) {
-                    SetMarkdownMode(state.enableMarkdown, editor, markdownDef, plainTextDef);
-                }
-
-                ImGui::Separator();
-
-                bool prevThemeState = state.isDarkTheme;
-                ImGui::MenuItem("Dark Theme", nullptr, &state.isDarkTheme);
-                if (state.isDarkTheme != prevThemeState) {
-                    ApplyTheme(state.isDarkTheme, editor, clear_color);
-                }
-
-                if (ImGui::MenuItem("Zoom In", "Ctrl++")) {
-                    currentFontIndex++;
-                }
-                if (ImGui::MenuItem("Zoom Out", "Ctrl+-")) {
-                    currentFontIndex--;
-                }
-                if (ImGui::MenuItem("Reset Zoom", "Ctrl+0")) {
-                    currentFontIndex = kDefaultFontIndex;
-                }
-
-                ImGui::EndMenu();
-            }
-            if (menuFont) {
-                ImGui::PopFont();
-            }
-            ImGui::EndMainMenuBar();
-        }
-        ImGui::PopStyleVar();
+        RenderMenuBar(state, editor, markdownDef, plainTextDef, menuFont, clear_color, currentFontIndex);
 
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->WorkPos);
         ImGui::SetNextWindowSize(viewport->WorkSize);
 
-        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
-                                        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                                        ImGuiWindowFlags_NoBringToFrontOnFocus;
+        ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+                                       ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                                       ImGuiWindowFlags_NoBringToFrontOnFocus;
 
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-        ImGui::Begin("MainWorkspace", nullptr, window_flags);
-        if (editorFonts[currentFontIndex] != nullptr) {
-            ImGui::PushFont(editorFonts[currentFontIndex]);
-        }
-
-        editor.Render("TextEditor");
-
-        if (editorFonts[currentFontIndex] != nullptr) {
-            ImGui::PopFont();
-        }
-        ImGui::End();
-        ImGui::PopStyleVar();
-
-        if (state.showFindPanel) {
-            ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 340.0f,
-                                           viewport->WorkPos.y + 12.0f),
-                                    ImGuiCond_Always);
-            ImGui::SetNextWindowSize(ImVec2(320.0f, 0.0f), ImGuiCond_Always);
-            ImGuiWindowFlags findFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
-                                         ImGuiWindowFlags_AlwaysAutoResize;
-            if (ImGui::Begin("Find", &state.showFindPanel, findFlags)) {
-                if (state.focusFindInput) {
-                    ImGui::SetKeyboardFocusHere();
-                    state.focusFindInput = false;
-                }
-
-                ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
-                bool submit = ImGui::InputText("##FindInput", state.findBuffer.data(), state.findBuffer.size(), inputFlags);
-                ImGui::SameLine();
-                if (ImGui::Button("Find Next")) {
-                    submit = true;
-                }
-
-                ImGui::SameLine();
-                ImGui::Checkbox("Wrap", &state.wrapSearch);
-
-                if (submit) {
-                    std::string query(state.findBuffer.data());
-                    state.findFailed = !FindNextMatch(editor, query, state.wrapSearch, state.findWrapped);
-                    if (!state.findFailed) {
-                        state.showFindPanel = true;
-                    }
-                }
-
-                if (state.findFailed) {
-                    ImGui::TextUnformatted("No matches found.");
-                } else if (state.findWrapped) {
-                    ImGui::TextUnformatted("Wrapped to start.");
-                }
-            }
-            ImGui::End();
-        }
+        RenderEditorWindow(editor, editorFonts, currentFontIndex, windowFlags);
+        RenderFindPanel(state, editor, viewport);
 
         ImGui::Render();
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
@@ -563,28 +621,7 @@ int main() {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
 
-        if (state.triggerOpen) {
-            auto f = pfd::open_file("Choose text file", ".", {"Text Files", "*.txt *.md *.cpp *.h", "All Files", "*"});
-            if (!f.result().empty()) {
-                LoadFile(f.result()[0], editor, state);
-            }
-            state.triggerOpen = false;
-        }
-        if (state.triggerSave) {
-            if (state.currentFilePath.empty()) {
-                state.triggerSaveAs = true;
-            } else {
-                SaveFile(state.currentFilePath, editor, state);
-            }
-            state.triggerSave = false;
-        }
-        if (state.triggerSaveAs) {
-            auto f = pfd::save_file("Save file", ".", {"Text Files", "*.txt *.md"});
-            if (!f.result().empty()) {
-                SaveFile(f.result(), editor, state);
-            }
-            state.triggerSaveAs = false;
-        }
+        HandleFileDialogs(state, editor);
     }
 
     ImGui_ImplOpenGL3_Shutdown();
