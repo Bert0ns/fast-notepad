@@ -51,7 +51,7 @@ A blazing-fast, ultra-lightweight text editor designed to replicate the simplici
 * **Top Menu Bar:**
   * **File:** New, Open, Save, Save As, Exit.
   * **Edit:** Undo, Redo, Cut, Copy, Paste.
-  * **View:** Markdown Highlighting (Toggle), Word Wrap (Toggle), Theme (Dark/Light).
+  * **View:** Markdown Highlighting (Toggle), Theme (Dark/Light).
 * **Main Workspace:** Borderless ImGui window dynamically resizing to fill the OS window.
 
 ### 5. Markdown Implementation

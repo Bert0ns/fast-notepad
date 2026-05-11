@@ -137,6 +137,9 @@ int main() {
 
     std::string lastFilePath = "UNINITIALIZED";  // Force an update on the first frame
 
+    bool isDarkTheme = true;
+    ImVec4 clear_color = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);  // Default to dark grey
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -237,6 +240,20 @@ int main() {
 
                 ImGui::Separator();
 
+                bool prevThemeState = isDarkTheme;
+                ImGui::MenuItem("Dark Theme", nullptr, &isDarkTheme);
+                if (isDarkTheme != prevThemeState) {
+                    if (isDarkTheme) {
+                        ImGui::StyleColorsDark();
+                        editor.SetPalette(TextEditor::GetDarkPalette());
+                        clear_color = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
+                    } else {
+                        ImGui::StyleColorsLight();
+                        editor.SetPalette(TextEditor::GetLightPalette());
+                        clear_color = ImVec4(0.95f, 0.95f, 0.95f, 1.0f);  // Clean off-white
+                    }
+                }
+
                 // --- NEW ZOOM CONTROLS ---
                 if (ImGui::MenuItem("Zoom In", "Ctrl++")) {
                     currentFontIndex++;
@@ -278,7 +295,7 @@ int main() {
         ImGui::PopStyleVar();
 
         ImGui::Render();
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
