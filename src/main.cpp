@@ -4,6 +4,7 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 #include <windows.h>
+
 #include "resource.h"
 #endif
 
@@ -13,13 +14,12 @@
 #include <sstream>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
 #include "TextEditor.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include "portable-file-dialogs.h"
+#include "stb_image.h"
 
 namespace {
 constexpr int kDefaultFontIndex = 3;
@@ -27,10 +27,13 @@ constexpr int kFontMinSize = 14;
 constexpr int kFontMaxSize = 32;
 constexpr int kFontStep = 2;
 constexpr int kFontSlots = ((kFontMaxSize - kFontMinSize) / kFontStep) + 1;
+constexpr float kMenuFontSize = 20.0f;
 constexpr const char* kNoCommentSentinel = "\x01";
 constexpr int kWindowWidth = 900;
 constexpr int kWindowHeight = 600;
 constexpr const char* kWindowTitle = "Fast Notepad";
+constexpr float kMenuBarPaddingX = 12.0f;
+constexpr float kMenuBarPaddingY = 12.0f;
 
 struct AppState {
     std::string currentFilePath;
@@ -77,6 +80,12 @@ void LoadEditorFonts(ImGuiIO& io, std::vector<ImFont*>& editorFonts) {
     for (int i = 0; i < kFontSlots; ++i) {
         editorFonts.push_back(nullptr);
     }
+}
+
+ImFont* LoadMenuFont(ImGuiIO& io) {
+    ImFontConfig config;
+    config.SizePixels = kMenuFontSize;
+    return io.Fonts->AddFontDefault(&config);
 }
 
 void SetMarkdownMode(bool enableMarkdown, TextEditor& editor, const TextEditor::LanguageDefinition& markdownDef, const TextEditor::LanguageDefinition& plainTextDef) {
@@ -230,6 +239,7 @@ int main() {
 
     ImGuiIO& io = ImGui::GetIO();
     LoadEditorFonts(io, editorFonts);
+    ImFont* menuFont = LoadMenuFont(io);
 
     TextEditor::LanguageDefinition markdownDef = GetMarkdownDefinition();
 
@@ -280,7 +290,11 @@ int main() {
         if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = kDefaultFontIndex;
 
         ClampFontIndex(currentFontIndex, (int)editorFonts.size());
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kMenuBarPaddingX, kMenuBarPaddingY));
         if (ImGui::BeginMainMenuBar()) {
+            if (menuFont) {
+                ImGui::PushFont(menuFont);
+            }
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("New")) {
                     editor.SetText("");
@@ -351,7 +365,11 @@ int main() {
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
+            if (menuFont) {
+                ImGui::PopFont();
+            }
         }
+        ImGui::PopStyleVar();
 
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->WorkPos);
