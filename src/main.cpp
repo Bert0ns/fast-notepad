@@ -79,6 +79,10 @@ int main() {
         return -1;
     }
 
+    std::string currentFilePath = "";
+    std::vector<ImFont*> editorFonts;  // NEW: Store multiple crisp font sizes
+    int currentFontIndex = 2;          // NEW: Default to index 2 (18px)
+
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 
@@ -87,6 +91,29 @@ int main() {
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
+
+    // --- NEW: SMART FONT LOADING ---
+    ImGuiIO& io = ImGui::GetIO();
+    io.Fonts->AddFontDefault();  // Load default tiny font for the Menu Bar
+
+    // Try to find a standard monospace font based on the OS
+    const char* fontPath = nullptr;
+    std::ifstream f_win("C:\\Windows\\Fonts\\consola.ttf");
+    std::ifstream f_lin("/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf");
+    if (f_win.good())
+        fontPath = "C:\\Windows\\Fonts\\consola.ttf";
+    else if (f_lin.good())
+        fontPath = "/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf";
+
+    // Load the font at 10 different, pixel-perfect sizes
+    if (fontPath) {
+        for (int size = 14; size <= 32; size += 2) {
+            editorFonts.push_back(io.Fonts->AddFontFromFileTTF(fontPath, size));
+        }
+    } else {
+        // Fallback if font isn't found
+        for (int i = 0; i < 10; ++i) editorFonts.push_back(nullptr);
+    }
 
     TextEditor editor;
     editor.SetPalette(TextEditor::GetDarkPalette());
@@ -109,8 +136,6 @@ int main() {
     bool enableMarkdown = false;
 
     std::string lastFilePath = "UNINITIALIZED";  // Force an update on the first frame
-
-    float fontScale = 2.0f; // Default font scale
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -136,26 +161,19 @@ int main() {
             }
         }
         // FONT SCALING SHORTCUTS
-        // 1. Ctrl + Mouse Wheel
         if (io.KeyCtrl && io.MouseWheel != 0.0f) {
-            fontScale += io.MouseWheel * 0.1f;
+            if (io.MouseWheel > 0)
+                currentFontIndex++;
+            else
+                currentFontIndex--;
         }
-        // 2. Ctrl + '+' (Using ImGuiKey_Equal because '+' is usually Shift+'=')
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Equal, false)) {
-            fontScale += 0.1f;
-        }
-        // 3. Ctrl + '-'
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Minus, false)) {
-            fontScale -= 0.1f;
-        }
-        // 4. Ctrl + '0' (Reset)
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) {
-            fontScale = 2.0f;
-        }
+        if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Equal, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd, false) || ImGui::IsKeyPressed(ImGuiKey_RightBracket, false))) currentFontIndex++;
+        if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Minus, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract, false))) currentFontIndex--;
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false)) currentFontIndex = 2;  // Reset
 
-        if (fontScale < 0.5f) fontScale = 0.5f;
-        if (fontScale > 10.0f) fontScale = 10.0f;
-        io.FontGlobalScale = fontScale;
+        // Clamp the zoom index safely within our loaded font sizes
+        if (currentFontIndex < 0) currentFontIndex = 0;
+        if (currentFontIndex >= (int)editorFonts.size()) currentFontIndex = (int)editorFonts.size() - 1;
 
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
@@ -221,13 +239,13 @@ int main() {
 
                 // --- NEW ZOOM CONTROLS ---
                 if (ImGui::MenuItem("Zoom In", "Ctrl++")) {
-                    fontScale += 0.1f;
+                    currentFontIndex++;
                 }
                 if (ImGui::MenuItem("Zoom Out", "Ctrl+-")) {
-                    fontScale -= 0.1f;
+                    currentFontIndex--;
                 }
                 if (ImGui::MenuItem("Reset Zoom", "Ctrl+0")) {
-                    fontScale = 2.0f;
+                    currentFontIndex = 2;
                 }
 
                 ImGui::EndMenu();
@@ -246,7 +264,16 @@ int main() {
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         ImGui::Begin("MainWorkspace", nullptr, window_flags);
+        // Push the crisp font ONLY for the editor!
+        if (editorFonts[currentFontIndex] != nullptr) {
+            ImGui::PushFont(editorFonts[currentFontIndex]);
+        }
+
         editor.Render("TextEditor");
+
+        if (editorFonts[currentFontIndex] != nullptr) {
+            ImGui::PopFont();
+        }
         ImGui::End();
         ImGui::PopStyleVar();
 
