@@ -37,6 +37,9 @@ cmake --build .
 Debug\FastNotepad.exe
 ```
 
+Other useful command to build the release version: `CMake: Select Variant`
+
+
 ## Features
 
 - Minimal top menu bar with File, Edit, and View menus
