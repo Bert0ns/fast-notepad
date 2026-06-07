@@ -59,6 +59,13 @@ bool NotepadApp::Init() {
 
   LoadFonts();
 
+  AppSettings settings;
+  if (SessionManager::LoadSettings(settings)) {
+    m_enableMarkdown = settings.enableMarkdown;
+    m_isDarkTheme = settings.isDarkTheme;
+    m_currentFontIndex = settings.currentFontIndex;
+  }
+
   m_themeManager.ApplyTheme(m_isDarkTheme, m_editor);
   m_themeManager.ApplyMarkdownMode(m_enableMarkdown, m_editor);
 
@@ -301,6 +308,12 @@ int NotepadApp::Run() {
     m_fileHandler.HandleDialogs(m_currentFilePath, m_editor, m_triggerOpen,
                                 m_triggerSave, m_triggerSaveAs);
   }
+
+  AppSettings settings;
+  settings.enableMarkdown = m_enableMarkdown;
+  settings.isDarkTheme = m_isDarkTheme;
+  settings.currentFontIndex = m_currentFontIndex;
+  SessionManager::SaveSettings(settings);
 
   SessionManager::SaveSessionState(m_currentFilePath, m_editor.GetText());
   return 0;

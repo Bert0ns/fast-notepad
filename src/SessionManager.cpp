@@ -54,3 +54,34 @@ bool SessionManager::LoadSessionState(std::string& currentFilePath,
   }
   return false;
 }
+
+void SessionManager::SaveSettings(const AppSettings& settings) {
+  std::error_code ec;
+  auto path =
+      std::filesystem::temp_directory_path(ec) / "fast-notepad-settings.txt";
+  if (ec) path = "fast-notepad-settings.txt";
+
+  std::ofstream file(path);
+  if (file.is_open()) {
+    file << (settings.enableMarkdown ? "1" : "0") << '\n';
+    file << (settings.isDarkTheme ? "1" : "0") << '\n';
+    file << settings.currentFontIndex << '\n';
+  }
+}
+
+bool SessionManager::LoadSettings(AppSettings& settings) {
+  std::error_code ec;
+  auto path =
+      std::filesystem::temp_directory_path(ec) / "fast-notepad-settings.txt";
+  if (ec) path = "fast-notepad-settings.txt";
+
+  std::ifstream file(path);
+  if (file.is_open()) {
+    std::string line;
+    if (std::getline(file, line)) settings.enableMarkdown = (line == "1");
+    if (std::getline(file, line)) settings.isDarkTheme = (line == "1");
+    if (std::getline(file, line)) settings.currentFontIndex = std::stoi(line);
+    return true;
+  }
+  return false;
+}
