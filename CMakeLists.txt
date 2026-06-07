@@ -33,11 +33,17 @@ file(WRITE "${textedit_SOURCE_DIR}/TextEditor.cpp" "${TEXT_EDITOR_CPP}")
 
 # 4. Fetch Portable File Dialogs
 FetchContent_Declare(pfd GIT_REPOSITORY https://github.com/samhocevar/portable-file-dialogs.git GIT_TAG main)
-FetchContent_MakeAvailable(pfd)
+FetchContent_GetProperties(pfd)
+if(NOT pfd_POPULATED)
+    FetchContent_Populate(pfd)
+endif()
 
 # 5. Fetch stb (image loader)
 FetchContent_Declare(stb GIT_REPOSITORY https://github.com/nothings/stb.git GIT_TAG master)
-FetchContent_MakeAvailable(stb)
+FetchContent_GetProperties(stb)
+if(NOT stb_POPULATED)
+    FetchContent_Populate(stb)
+endif()
 
 # 6. Create ImGui Static Library
 set(IMGUI_SOURCES
