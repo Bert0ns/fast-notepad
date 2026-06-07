@@ -13,6 +13,7 @@ cmake ..
 make
 ./FastNotepad
 ```
+
 If an error shows up talnking about X11, you are missing the X11 + OpenGL dev packages, install them:
 
 ```bash

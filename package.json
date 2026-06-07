@@ -1,0 +1,32 @@
+{
+  "name": "fast-notepad",
+  "version": "1.0.0",
+  "description": "A compact, cross-platform text editor built with C++ and Dear ImGui. It focuses on quick startup, a minimal UI, and practical editing tools.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bert0ns/fast-notepad.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Bert0ns/fast-notepad/issues"
+  },
+  "homepage": "https://github.com/Bert0ns/fast-notepad#readme",
+  "devDependencies": {
+    "clang-format": "^1.8.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "prettier": "^3.8.3"
+  },
+  "lint-staged": {
+    "*.{js,css,md,json,yml,yaml}": "prettier --write",
+    "*.{cpp,hpp,c,h}": "clang-format -i"
+  }
+}
