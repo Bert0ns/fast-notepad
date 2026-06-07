@@ -80,3 +80,26 @@ if(MSVC)
     # Build as a GUI app without requiring a WinMain entry point.
     target_link_options(FastNotepad PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
 endif()
+
+# 8. Testing setup
+enable_testing()
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.5.2
+)
+FetchContent_MakeAvailable(Catch2)
+
+add_executable(fast_notepad_tests tests/test_session_manager.cpp src/SessionManager.cpp)
+target_include_directories(fast_notepad_tests PRIVATE src)
+target_link_libraries(fast_notepad_tests PRIVATE Catch2::Catch2WithMain)
+
+option(ENABLE_COVERAGE "Enable coverage reporting" OFF)
+if(ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(fast_notepad_tests PRIVATE --coverage -O0 -g)
+    target_link_options(fast_notepad_tests PRIVATE --coverage)
+endif()
+
+include(Catch)
+catch_discover_tests(fast_notepad_tests)
+

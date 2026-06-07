@@ -1,0 +1,45 @@
+name: CI & Tests
+
+on:
+  push:
+    branches: ['main', 'master']
+  pull_request:
+    branches: ['main', 'master']
+
+jobs:
+  test-and-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorg-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev gcovr
+
+      - name: Configure CMake
+        run: cmake -B build -DBUILD_TESTING=ON -DENABLE_COVERAGE=ON
+
+      - name: Build tests
+        run: cmake --build build --target fast_notepad_tests
+
+      - name: Run tests
+        run: cd build && ctest --output-on-failure
+
+      - name: Generate Code Coverage Report
+        run: |
+          mkdir -p coverage
+          gcovr -r . --object-directory build \
+                --exclude "tests/.*" \
+                --exclude "_deps/.*" \
+                --exclude "build/.*" \
+                --xml coverage/coverage.xml \
+                --html-details coverage/index.html \
+                --print-summary
+
+      - name: Upload Coverage Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage
+          path: coverage/
