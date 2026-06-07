@@ -480,6 +480,56 @@ void SaveFile(const std::string& filepath, TextEditor& editor,
   }
 }
 
+void SaveSessionState(const AppState& state, TextEditor& editor) {
+  std::error_code ec;
+  auto path =
+      std::filesystem::temp_directory_path(ec) / "fast-notepad-autosave.txt";
+  if (ec) path = "fast-notepad-autosave.txt";
+
+  std::ofstream file(path, std::ios::binary);
+  if (file.is_open()) {
+    file << state.currentFilePath << '\n';
+    file << editor.GetText();
+  }
+}
+
+bool LoadSessionState(AppState& state, TextEditor& editor) {
+  std::error_code ec;
+  auto path =
+      std::filesystem::temp_directory_path(ec) / "fast-notepad-autosave.txt";
+  if (ec) path = "fast-notepad-autosave.txt";
+
+  std::ifstream file(path, std::ios::binary);
+  if (file.is_open()) {
+    std::string filepath;
+    std::getline(file, filepath);
+    if (!filepath.empty() && filepath.back() == '\r') {
+      filepath.pop_back();
+    }
+    state.currentFilePath = filepath;
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+
+    std::string content = buffer.str();
+
+    bool isEmpty = true;
+    for (char c : content) {
+      if (!std::isspace(static_cast<unsigned char>(c))) {
+        isEmpty = false;
+        break;
+      }
+    }
+
+    if (filepath.empty() && isEmpty) {
+      return false;
+    }
+
+    editor.SetText(content);
+    return true;
+  }
+  return false;
+}
+
 void HandleFileDialogs(AppState& state, TextEditor& editor) {
   if (state.triggerOpen) {
     auto f = pfd::open_file(
@@ -632,8 +682,11 @@ int main() {
 
   TextEditor editor;
   editor.SetPalette(TextEditor::GetDarkPalette());
-  editor.SetText("Start *typing* or open a file...");
-  SelectAllText(editor);
+
+  if (!LoadSessionState(state, editor)) {
+    editor.SetText("Start *typing* or open a file...");
+    SelectAllText(editor);
+  }
 
   TextEditor::LanguageDefinition plainTextDef;
   plainTextDef.mName = "Plain Text";
@@ -681,6 +734,8 @@ int main() {
 
     HandleFileDialogs(state, editor);
   }
+
+  SaveSessionState(state, editor);
 
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
