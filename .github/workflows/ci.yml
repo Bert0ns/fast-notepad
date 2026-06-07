@@ -31,9 +31,7 @@ jobs:
         run: |
           mkdir -p coverage
           gcovr -r . --object-directory build \
-                --exclude "tests/.*" \
-                --exclude "_deps/.*" \
-                --exclude "build/.*" \
+                --filter "src/.*" \
                 --xml coverage/coverage.xml \
                 --html-details coverage/index.html \
                 --print-summary

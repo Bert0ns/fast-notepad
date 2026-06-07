@@ -96,9 +96,32 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
-add_executable(fast_notepad_tests tests/test_session_manager.cpp src/SessionManager.cpp)
-target_include_directories(fast_notepad_tests PRIVATE src)
-target_link_libraries(fast_notepad_tests PRIVATE Catch2::Catch2WithMain)
+add_executable(fast_notepad_tests 
+    tests/test_session_manager.cpp 
+    tests/test_file_handler.cpp
+    tests/test_theme_manager.cpp
+    tests/test_platform.cpp
+    tests/test_find_panel.cpp
+    src/SessionManager.cpp
+    src/FileHandler.cpp
+    src/ThemeManager.cpp
+    src/Platform.cpp
+    src/FindPanel.cpp
+    ${textedit_SOURCE_DIR}/TextEditor.cpp
+)
+target_include_directories(fast_notepad_tests PRIVATE 
+    src
+    ${textedit_SOURCE_DIR} 
+    ${imgui_SOURCE_DIR} 
+    ${pfd_SOURCE_DIR}
+    ${stb_SOURCE_DIR}
+)
+target_link_libraries(fast_notepad_tests PRIVATE 
+    Catch2::Catch2WithMain
+    ImGuiLib
+    glfw
+    ${OPENGL_LIBRARIES}
+)
 
 option(ENABLE_COVERAGE "Enable coverage reporting" OFF)
 if(ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
