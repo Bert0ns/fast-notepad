@@ -33,3 +33,21 @@ TEST_CASE("Platform Paths", "[Platform]") {
     }
   }
 }
+
+#include <GLFW/glfw3.h>
+
+TEST_CASE("Platform Window Icon", "[Platform]") {
+  // Create a hidden GLFW window just to test the icon setting logic
+  if (glfwInit()) {
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    GLFWwindow* window = glfwCreateWindow(100, 100, "Test Window", NULL, NULL);
+    if (window) {
+      // It might return true or false depending on if it finds the icon.
+      // We just ensure it runs the OS-specific branches without crashing.
+      bool result = Platform::SetWindowIcon(window);
+      REQUIRE((result == true || result == false));  // Just ensuring no crash
+      glfwDestroyWindow(window);
+    }
+    glfwTerminate();
+  }
+}

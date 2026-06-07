@@ -89,5 +89,26 @@ TEST_CASE("FindPanel Logic", "[FindPanel]") {
     REQUIRE(editor.GetCursorPosition().mColumn == 7);
   }
 
+  SECTION("Render Panel") {
+    ImGuiIO& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2(800, 600);
+
+    // ImGui requires the font atlas to be built before the first NewFrame()
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
+    ImGui::NewFrame();
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+    panel.Open(editor);
+    panel.Render(editor, viewport);
+
+    // Render sets focus input flag to false
+    REQUIRE(panel.m_focusInput == false);
+
+    ImGui::EndFrame();
+  }
+
   ImGui::DestroyContext();
 }

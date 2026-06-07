@@ -49,6 +49,25 @@ TEST_CASE("FileHandler Load and Save", "[FileHandler]") {
   REQUIRE(buffer.str() == newContent + "\n");
   REQUIRE(currentFile == testPath);
 
+  SECTION("HandleDialogs fast-path (Save without dialog)") {
+    bool tOpen = false;
+    bool tSave = true;
+    bool tSaveAs = false;
+
+    // Change text
+    editor.SetText("Modified text via HandleDialogs\n");
+    handler.HandleDialogs(currentFile, editor, tOpen, tSave, tSaveAs);
+
+    REQUIRE(tSave == false);
+    REQUIRE(tSaveAs ==
+            false);  // Didn't trigger Save As because currentFile was set
+
+    std::ifstream in2(testPath);
+    std::stringstream buffer2;
+    buffer2 << in2.rdbuf();
+    REQUIRE(buffer2.str() == "Modified text via HandleDialogs\n\n");
+  }
+
   // Cleanup
   std::filesystem::remove(testPath);
   ImGui::DestroyContext();
