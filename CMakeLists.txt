@@ -37,7 +37,7 @@ if(NOT textedit_POPULATED)
     file(WRITE "${textedit_SOURCE_DIR}/TextEditor.cpp" "${TEXT_EDITOR_CPP}")
 endif()
 
-# 4. Fetch Portable File Dialogs (NEW)
+# 4. Fetch Portable File Dialogs
 FetchContent_Declare(pfd GIT_REPOSITORY https://github.com/samhocevar/portable-file-dialogs.git GIT_TAG main)
 FetchContent_GetProperties(pfd)
 if(NOT pfd_POPULATED)
@@ -65,13 +65,15 @@ target_include_directories(ImGuiLib PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DI
 target_link_libraries(ImGuiLib PRIVATE glfw ${OPENGL_LIBRARIES})
 
 # 7. Define our executable (Now including TextEditor.cpp)
+file(GLOB APP_SOURCES "src/*.cpp")
 add_executable(FastNotepad WIN32
-    src/main.cpp 
+    ${APP_SOURCES}
     ${textedit_SOURCE_DIR}/TextEditor.cpp
 )
 
 # Make sure our app can find the TextEditor.h header file
 target_include_directories(FastNotepad PRIVATE 
+    src
     ${textedit_SOURCE_DIR} 
     ${imgui_SOURCE_DIR} 
     ${pfd_SOURCE_DIR}
