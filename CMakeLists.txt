@@ -20,36 +20,24 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
     GIT_TAG        v1.90.4
 )
-FetchContent_GetProperties(imgui)
-if(NOT imgui_POPULATED)
-    FetchContent_Populate(imgui)
-endif()
+FetchContent_MakeAvailable(imgui)
 
 # 3. Fetch ImGuiColorTextEdit
 FetchContent_Declare(textedit GIT_REPOSITORY https://github.com/BalazsJako/ImGuiColorTextEdit.git GIT_TAG master)
-FetchContent_GetProperties(textedit)
-if(NOT textedit_POPULATED)
-    FetchContent_Populate(textedit)
-    # Patch TextEditor.cpp for ImGui 1.90+ compatibility
-    file(READ "${textedit_SOURCE_DIR}/TextEditor.cpp" TEXT_EDITOR_CPP)
-    string(REPLACE "ImGui::PushItemFlag(ImGuiItemFlags_NoTabStop, false);" "/* patched no tab stop */" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
-    string(REPLACE "ImGui::PopItemFlag();" "/* patched pop item flag */" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
-    file(WRITE "${textedit_SOURCE_DIR}/TextEditor.cpp" "${TEXT_EDITOR_CPP}")
-endif()
+FetchContent_MakeAvailable(textedit)
+# Patch TextEditor.cpp for ImGui 1.90+ compatibility
+file(READ "${textedit_SOURCE_DIR}/TextEditor.cpp" TEXT_EDITOR_CPP)
+string(REPLACE "ImGui::PushItemFlag(ImGuiItemFlags_NoTabStop, false);" "/* patched no tab stop */" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
+string(REPLACE "ImGui::PopItemFlag();" "/* patched pop item flag */" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
+file(WRITE "${textedit_SOURCE_DIR}/TextEditor.cpp" "${TEXT_EDITOR_CPP}")
 
 # 4. Fetch Portable File Dialogs
 FetchContent_Declare(pfd GIT_REPOSITORY https://github.com/samhocevar/portable-file-dialogs.git GIT_TAG main)
-FetchContent_GetProperties(pfd)
-if(NOT pfd_POPULATED)
-    FetchContent_Populate(pfd)
-endif()
+FetchContent_MakeAvailable(pfd)
 
 # 5. Fetch stb (image loader)
 FetchContent_Declare(stb GIT_REPOSITORY https://github.com/nothings/stb.git GIT_TAG master)
-FetchContent_GetProperties(stb)
-if(NOT stb_POPULATED)
-    FetchContent_Populate(stb)
-endif()
+FetchContent_MakeAvailable(stb)
 
 # 6. Create ImGui Static Library
 set(IMGUI_SOURCES
