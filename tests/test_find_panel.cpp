@@ -7,10 +7,7 @@
 #include "TextEditor.h"
 #include "Utf8Utils.h"
 
-// Dirty trick to access private members for unit testing
-#define private public
 #include "FindPanel.h"
-#undef private
 
 TEST_CASE("FindPanel Logic", "[FindPanel]") {
   // TextEditor requires ImGui context for Palette initialization

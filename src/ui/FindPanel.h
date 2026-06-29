@@ -13,7 +13,7 @@ class FindPanel {
   void Close();
   bool IsOpen() const { return m_show; }
 
- private:
+ public: // Exposed for testing
   void UpdateBufferFromSelection(TextEditor& editor);
   bool FindNextMatch(TextEditor& editor, const std::string& query, bool wrap,
                      bool& wrapped);
