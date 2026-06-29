@@ -126,6 +126,7 @@ target_include_directories(fast_notepad_tests PRIVATE
     ${imgui_SOURCE_DIR} 
     ${pfd_SOURCE_DIR}
     ${stb_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/assets
 )
 target_link_libraries(fast_notepad_tests PRIVATE 
     Catch2::Catch2WithMain

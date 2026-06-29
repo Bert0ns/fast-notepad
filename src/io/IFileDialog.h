@@ -1,9 +1,9 @@
 #pragma once
 #include <string>
 
-class IFileDialog {
+class IAppFileDialog {
  public:
-  virtual ~IFileDialog() = default;
+  virtual ~IAppFileDialog() = default;
   virtual std::string OpenFile() = 0;
   virtual std::string SaveFile() = 0;
 };

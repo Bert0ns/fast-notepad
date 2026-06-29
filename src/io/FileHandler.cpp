@@ -3,7 +3,7 @@
 #include <fstream>
 #include <sstream>
 
-FileHandler::FileHandler(IFileDialog* dialogs) : m_dialogs(dialogs) {}
+FileHandler::FileHandler(IAppFileDialog* dialogs) : m_dialogs(dialogs) {}
 
 void FileHandler::LoadFile(const std::string& filepath, TextEditor& editor,
                            std::string& currentFilePath) {

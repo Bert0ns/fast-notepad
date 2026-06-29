@@ -3,5 +3,5 @@
 mkdir -p build
 cd build
 cmake ..
-cmake --build .
+cmake --build . --config Release
 echo "run the app with ./build/FastNotepad"

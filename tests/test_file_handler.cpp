@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 #include "FileHandler.h"
 #include "TextEditor.h"
@@ -69,7 +70,7 @@ TEST_CASE("FileHandler Load and Save", "[FileHandler]") {
   }
 
   SECTION("HandleDialogs with MockFileDialog") {
-    class MockFileDialog : public IFileDialog {
+    class MockFileDialog : public IAppFileDialog {
     public:
       std::string openResult;
       std::string saveResult;
