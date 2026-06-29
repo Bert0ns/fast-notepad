@@ -5,6 +5,7 @@
 #include <string>
 
 #include "TextEditor.h"
+#include "Utf8Utils.h"
 
 // Dirty trick to access private members for unit testing
 #define private public
@@ -27,10 +28,10 @@ TEST_CASE("FindPanel Logic", "[FindPanel]") {
   }
 
   SECTION("UTF-8 Length Calculation") {
-    REQUIRE(panel.Utf8CharLength('a') == 1);
-    REQUIRE(panel.Utf8CharLength(0xC3) == 2);
-    REQUIRE(panel.Utf8CharLength(0xE0) == 3);
-    REQUIRE(panel.Utf8CharLength(0xF0) == 4);
+    REQUIRE(Utf8Utils::CharLength('a') == 1);
+    REQUIRE(Utf8Utils::CharLength(0xC3) == 2);
+    REQUIRE(Utf8Utils::CharLength(0xE0) == 3);
+    REQUIRE(Utf8Utils::CharLength(0xF0) == 4);
   }
 
   SECTION("Column and Byte conversion") {

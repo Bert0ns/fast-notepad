@@ -3,16 +3,19 @@
 #include <fstream>
 #include <sstream>
 
-#include "portable-file-dialogs.h"
+FileHandler::FileHandler(IFileDialog* dialogs) : m_dialogs(dialogs) {}
 
 void FileHandler::LoadFile(const std::string& filepath, TextEditor& editor,
                            std::string& currentFilePath) {
-  std::ifstream file(filepath);
+  std::ifstream file(filepath, std::ios::binary | std::ios::ate);
   if (file.is_open()) {
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    editor.SetText(buffer.str());
-    currentFilePath = filepath;
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::string buffer(size, '\0');
+    if (file.read(&buffer[0], size)) {
+      editor.SetText(buffer);
+      currentFilePath = filepath;
+    }
   }
 }
 
@@ -29,11 +32,11 @@ void FileHandler::HandleDialogs(std::string& currentFilePath,
                                 TextEditor& editor, bool& triggerOpen,
                                 bool& triggerSave, bool& triggerSaveAs) {
   if (triggerOpen) {
-    auto f = pfd::open_file(
-        "Choose text file", ".",
-        {"Text Files", "*.txt *.md *.cpp *.h", "All Files", "*"});
-    if (!f.result().empty()) {
-      LoadFile(f.result()[0], editor, currentFilePath);
+    if (m_dialogs) {
+      std::string result = m_dialogs->OpenFile();
+      if (!result.empty()) {
+        LoadFile(result, editor, currentFilePath);
+      }
     }
     triggerOpen = false;
   }
@@ -46,9 +49,11 @@ void FileHandler::HandleDialogs(std::string& currentFilePath,
     triggerSave = false;
   }
   if (triggerSaveAs) {
-    auto f = pfd::save_file("Save file", ".", {"Text Files", "*.txt *.md"});
-    if (!f.result().empty()) {
-      SaveFile(f.result(), editor, currentFilePath);
+    if (m_dialogs) {
+      std::string result = m_dialogs->SaveFile();
+      if (!result.empty()) {
+        SaveFile(result, editor, currentFilePath);
+      }
     }
     triggerSaveAs = false;
   }

@@ -18,7 +18,6 @@ class FindPanel {
   bool FindNextMatch(TextEditor& editor, const std::string& query, bool wrap,
                      bool& wrapped);
 
-  int Utf8CharLength(unsigned char c);
   int ByteIndexToColumn(const std::string& line, int byteIndex, int tabSize);
   int ColumnToByteIndex(const std::string& line, int column, int tabSize);
 

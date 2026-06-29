@@ -8,6 +8,9 @@ ThemeManager::ThemeManager() {
 }
 
 void ThemeManager::ApplyNoCommentParsing(TextEditor::LanguageDefinition& lang) {
+  // ImGuiColorTextEdit doesn't have a built-in way to completely disable comments.
+  // We use the non-printable ASCII character \x01 (Start of Heading) as a hack
+  // to ensure normal user text is never accidentally parsed as a comment.
   lang.mCommentStart = "\x01";
   lang.mCommentEnd = "\x01";
   lang.mSingleLineComment = "\x01";

@@ -1,4 +1,5 @@
 #include "FindPanel.h"
+#include "Utf8Utils.h"
 
 void FindPanel::Open(TextEditor& editor) {
   UpdateBufferFromSelection(editor);
@@ -17,15 +18,8 @@ void FindPanel::UpdateBufferFromSelection(TextEditor& editor) {
   if (selected.empty()) return;
   std::snprintf(m_findBuffer.data(), m_findBuffer.size(), "%s",
                 selected.c_str());
-}
 
-int FindPanel::Utf8CharLength(unsigned char c) {
-  if ((c & 0xFE) == 0xFC) return 6;
-  if ((c & 0xFC) == 0xF8) return 5;
-  if ((c & 0xF8) == 0xF0) return 4;
-  if ((c & 0xF0) == 0xE0) return 3;
-  if ((c & 0xE0) == 0xC0) return 2;
-  return 1;
+
 }
 
 int FindPanel::ByteIndexToColumn(const std::string& line, int byteIndex,
@@ -40,7 +34,7 @@ int FindPanel::ByteIndexToColumn(const std::string& line, int byteIndex,
       ++i;
     } else {
       ++column;
-      i += Utf8CharLength(c);
+      i += Utf8Utils::CharLength(c);
     }
   }
   return column;
@@ -59,7 +53,7 @@ int FindPanel::ColumnToByteIndex(const std::string& line, int column,
       ++i;
     } else {
       ++currentColumn;
-      i += Utf8CharLength(c);
+      i += Utf8Utils::CharLength(c);
     }
   }
   return i;

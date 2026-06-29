@@ -1,12 +1,13 @@
 #include "NotepadApp.h"
-
 #include <GLFW/glfw3.h>
+
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
 #include "Platform.h"
 #include "SessionManager.h"
+#include "Utf8Utils.h"
 
 constexpr int kDefaultFontIndex = 3;
 constexpr int kFontMinSize = 14;
@@ -20,42 +21,15 @@ constexpr const char* kWindowTitle = "Fast Notepad";
 constexpr float kMenuBarPaddingX = 12.0f;
 constexpr float kMenuBarPaddingY = 12.0f;
 
-NotepadApp::NotepadApp() {}
+NotepadApp::NotepadApp() : m_fileHandler(&m_nativeDialogs) {}
 
 NotepadApp::~NotepadApp() {
-  if (m_window) {
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-    glfwDestroyWindow(m_window);
-    glfwTerminate();
-  }
 }
 
 bool NotepadApp::Init() {
-  if (!glfwInit()) return false;
-
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-
-  m_window =
-      glfwCreateWindow(kWindowWidth, kWindowHeight, kWindowTitle, NULL, NULL);
-  if (!m_window) {
-    glfwTerminate();
+  if (!m_windowCtx.Init(kWindowWidth, kWindowHeight, kWindowTitle)) {
     return false;
   }
-
-  Platform::SetWindowIcon(m_window);
-
-  glfwMakeContextCurrent(m_window);
-  glfwSwapInterval(1);
-
-  IMGUI_CHECKVERSION();
-  ImGui::CreateContext();
-  ImGui_ImplGlfw_InitForOpenGL(m_window, true);
-  ImGui_ImplOpenGL3_Init("#version 330");
 
   LoadFonts();
 
@@ -120,18 +94,7 @@ void NotepadApp::SelectAllText() {
       ++i;
     } else {
       ++currentColumn;
-      int len = 1;
-      if ((c & 0xFE) == 0xFC)
-        len = 6;
-      else if ((c & 0xFC) == 0xF8)
-        len = 5;
-      else if ((c & 0xF8) == 0xF0)
-        len = 4;
-      else if ((c & 0xF0) == 0xE0)
-        len = 3;
-      else if ((c & 0xE0) == 0xC0)
-        len = 2;
-      i += len;
+      i += Utf8Utils::CharLength(c);
     }
   }
   endCol = currentColumn;
@@ -189,7 +152,7 @@ void NotepadApp::RenderMenuBar() {
       if (ImGui::MenuItem("Save", "Ctrl+S")) m_triggerSave = true;
       if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) m_triggerSaveAs = true;
       ImGui::Separator();
-      if (ImGui::MenuItem("Exit")) glfwSetWindowShouldClose(m_window, true);
+      if (ImGui::MenuItem("Exit")) m_windowCtx.SetShouldClose(true);
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Edit")) {
@@ -270,14 +233,14 @@ void NotepadApp::UpdateWindowTitle() {
     std::string title = m_currentFilePath.empty()
                             ? "Fast Notepad - Untitled"
                             : "Fast Notepad - " + m_currentFilePath;
-    glfwSetWindowTitle(m_window, title.c_str());
+    m_windowCtx.SetWindowTitle(title.c_str());
     m_lastFilePath = m_currentFilePath;
   }
 }
 
 int NotepadApp::Run() {
-  while (!glfwWindowShouldClose(m_window)) {
-    glfwPollEvents();
+  while (!m_windowCtx.ShouldClose()) {
+    m_windowCtx.PollEvents();
     UpdateWindowTitle();
 
     ImGui_ImplOpenGL3_NewFrame();
@@ -303,7 +266,7 @@ int NotepadApp::Run() {
     glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    glfwSwapBuffers(m_window);
+    m_windowCtx.SwapBuffers();
 
     m_fileHandler.HandleDialogs(m_currentFilePath, m_editor, m_triggerOpen,
                                 m_triggerSave, m_triggerSaveAs);

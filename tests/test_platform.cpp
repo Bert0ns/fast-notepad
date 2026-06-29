@@ -37,6 +37,10 @@ TEST_CASE("Platform Paths", "[Platform]") {
 #include <GLFW/glfw3.h>
 
 TEST_CASE("Platform Window Icon", "[Platform]") {
+  if (std::getenv("CI")) {
+    SUCCEED("Skipping GUI test on CI");
+    return;
+  }
   // Create a hidden GLFW window just to test the icon setting logic
   if (glfwInit()) {
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);

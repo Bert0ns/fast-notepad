@@ -68,6 +68,31 @@ TEST_CASE("FileHandler Load and Save", "[FileHandler]") {
     REQUIRE(buffer2.str() == "Modified text via HandleDialogs\n\n");
   }
 
+  SECTION("HandleDialogs with MockFileDialog") {
+    class MockFileDialog : public IFileDialog {
+    public:
+      std::string openResult;
+      std::string saveResult;
+      std::string OpenFile() override { return openResult; }
+      std::string SaveFile() override { return saveResult; }
+    };
+    
+    MockFileDialog mockDialog;
+    FileHandler mockHandler(&mockDialog);
+    
+    // Test Open
+    bool tOpen = true, tSave = false, tSaveAs = false;
+    mockDialog.openResult = testPath;
+    
+    // Reset editor
+    editor.SetText("");
+    mockHandler.HandleDialogs(currentFile, editor, tOpen, tSave, tSaveAs);
+    
+    REQUIRE(tOpen == false);
+    REQUIRE(editor.GetText() == "New Line 1\nNew Line 2\n\n\n");
+    REQUIRE(currentFile == testPath);
+  }
+
   // Cleanup
   std::filesystem::remove(testPath);
   ImGui::DestroyContext();

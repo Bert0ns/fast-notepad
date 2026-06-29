@@ -6,8 +6,8 @@
 #include "FindPanel.h"
 #include "TextEditor.h"
 #include "ThemeManager.h"
-
-struct GLFWwindow;
+#include "NativeFileDialog.h"
+#include "WindowContext.h"
 
 class NotepadApp {
  public:
@@ -25,10 +25,11 @@ class NotepadApp {
   void UpdateWindowTitle();
   void SelectAllText();
 
-  GLFWwindow* m_window = nullptr;
+  WindowContext m_windowCtx;
 
   TextEditor m_editor;
   ThemeManager m_themeManager;
+  NativeFileDialog m_nativeDialogs;
   FileHandler m_fileHandler;
   FindPanel m_findPanel;
 

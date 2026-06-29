@@ -59,7 +59,7 @@ target_include_directories(ImGuiLib PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DI
 target_link_libraries(ImGuiLib PRIVATE glfw ${OPENGL_LIBRARIES})
 
 # 7. Define our executable (Now including TextEditor.cpp)
-file(GLOB APP_SOURCES "src/*.cpp")
+file(GLOB_RECURSE APP_SOURCES "src/*.cpp")
 add_executable(FastNotepad WIN32
     ${APP_SOURCES}
     ${textedit_SOURCE_DIR}/TextEditor.cpp
@@ -68,6 +68,10 @@ add_executable(FastNotepad WIN32
 # Make sure our app can find the TextEditor.h header file
 target_include_directories(FastNotepad PRIVATE 
     src
+    src/core
+    src/ui
+    src/io
+    src/utils
     ${textedit_SOURCE_DIR} 
     ${imgui_SOURCE_DIR} 
     ${pfd_SOURCE_DIR}
@@ -102,15 +106,22 @@ add_executable(fast_notepad_tests
     tests/test_theme_manager.cpp
     tests/test_platform.cpp
     tests/test_find_panel.cpp
-    src/SessionManager.cpp
-    src/FileHandler.cpp
-    src/ThemeManager.cpp
-    src/Platform.cpp
-    src/FindPanel.cpp
+    src/core/SessionManager.cpp
+    src/io/FileHandler.cpp
+    src/ui/ThemeManager.cpp
+    src/utils/Platform.cpp
+    src/ui/FindPanel.cpp
+    src/utils/Utf8Utils.cpp
+    src/io/NativeFileDialog.cpp
+    src/core/WindowContext.cpp
     ${textedit_SOURCE_DIR}/TextEditor.cpp
 )
 target_include_directories(fast_notepad_tests PRIVATE 
     src
+    src/core
+    src/ui
+    src/io
+    src/utils
     ${textedit_SOURCE_DIR} 
     ${imgui_SOURCE_DIR} 
     ${pfd_SOURCE_DIR}
