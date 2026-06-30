@@ -106,6 +106,8 @@ add_executable(fast_notepad_tests
     tests/test_theme_manager.cpp
     tests/test_platform.cpp
     tests/test_find_panel.cpp
+    tests/test_shortcut_manager.cpp
+    tests/test_menu_bar.cpp
     src/core/SessionManager.cpp
     src/io/FileHandler.cpp
     src/ui/ThemeManager.cpp
@@ -114,6 +116,8 @@ add_executable(fast_notepad_tests
     src/utils/Utf8Utils.cpp
     src/io/NativeFileDialog.cpp
     src/core/WindowContext.cpp
+    src/core/ShortcutManager.cpp
+    src/ui/MenuBar.cpp
     ${textedit_SOURCE_DIR}/TextEditor.cpp
 )
 target_include_directories(fast_notepad_tests PRIVATE 

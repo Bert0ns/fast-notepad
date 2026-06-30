@@ -6,6 +6,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+#include <chrono>
+
 #include "Platform.h"
 #include "SessionManager.h"
 #include "Utf8Utils.h"
@@ -35,16 +37,16 @@ bool NotepadApp::Init() {
 
   AppSettings settings;
   if (SessionManager::LoadSettings(settings)) {
-    m_enableMarkdown = settings.enableMarkdown;
-    m_isDarkTheme = settings.isDarkTheme;
-    m_currentFontIndex = settings.currentFontIndex;
+    m_state.enableMarkdown = settings.enableMarkdown;
+    m_state.isDarkTheme = settings.isDarkTheme;
+    m_state.currentFontIndex = settings.currentFontIndex;
   }
 
-  m_themeManager.ApplyTheme(m_isDarkTheme, m_editor);
-  m_themeManager.ApplyMarkdownMode(m_enableMarkdown, m_editor);
+  m_themeManager.ApplyTheme(m_state.isDarkTheme, m_editor);
+  m_themeManager.ApplyMarkdownMode(m_state.enableMarkdown, m_editor);
 
   std::string content;
-  if (SessionManager::LoadSessionState(m_currentFilePath, content)) {
+  if (SessionManager::LoadSessionState(m_state.currentFilePath, content)) {
     m_editor.SetText(content);
   } else {
     m_editor.SetText("Start *typing* or open a file...");
@@ -103,101 +105,6 @@ void NotepadApp::SelectAllText() {
   m_editor.SetCursorPosition({lastLine, endCol});
 }
 
-void NotepadApp::HandleShortcuts() {
-  ImGuiIO& io = ImGui::GetIO();
-  if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false))
-    m_triggerOpen = true;
-  if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
-    if (io.KeyShift)
-      m_triggerSaveAs = true;
-    else
-      m_triggerSave = true;
-  }
-  if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F, false)) {
-    m_findPanel.Open(m_editor);
-  }
-  if (io.KeyCtrl && io.MouseWheel != 0.0f) {
-    if (io.MouseWheel > 0)
-      m_currentFontIndex++;
-    else
-      m_currentFontIndex--;
-  }
-  if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Equal, false) ||
-                     ImGui::IsKeyPressed(ImGuiKey_KeypadAdd, false) ||
-                     ImGui::IsKeyPressed(ImGuiKey_RightBracket, false)))
-    m_currentFontIndex++;
-  if (io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_Minus, false) ||
-                     ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract, false)))
-    m_currentFontIndex--;
-  if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_0, false))
-    m_currentFontIndex = kDefaultFontIndex;
-
-  if (m_findPanel.IsOpen() && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
-    m_findPanel.Close();
-  }
-}
-
-void NotepadApp::RenderMenuBar() {
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
-                      ImVec2(kMenuBarPaddingX, kMenuBarPaddingY));
-  if (ImGui::BeginMainMenuBar()) {
-    if (m_menuFont) ImGui::PushFont(m_menuFont);
-
-    if (ImGui::BeginMenu("File")) {
-      if (ImGui::MenuItem("New")) {
-        m_editor.SetText("");
-        m_currentFilePath = "";
-      }
-      if (ImGui::MenuItem("Open", "Ctrl+O")) m_triggerOpen = true;
-      if (ImGui::MenuItem("Save", "Ctrl+S")) m_triggerSave = true;
-      if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) m_triggerSaveAs = true;
-      ImGui::Separator();
-      if (ImGui::MenuItem("Exit")) m_windowCtx.SetShouldClose(true);
-      ImGui::EndMenu();
-    }
-    if (ImGui::BeginMenu("Edit")) {
-      if (ImGui::MenuItem("Undo", "Ctrl+Z", nullptr, m_editor.CanUndo()))
-        m_editor.Undo();
-      if (ImGui::MenuItem("Redo", "Ctrl+Y", nullptr, m_editor.CanRedo()))
-        m_editor.Redo();
-      ImGui::Separator();
-      if (ImGui::MenuItem("Cut", "Ctrl+X", nullptr, m_editor.HasSelection()))
-        m_editor.Cut();
-      if (ImGui::MenuItem("Copy", "Ctrl+C", nullptr, m_editor.HasSelection()))
-        m_editor.Copy();
-      if (ImGui::MenuItem("Paste", "Ctrl+V")) m_editor.Paste();
-      ImGui::Separator();
-      if (ImGui::MenuItem("Find", "Ctrl+F")) m_findPanel.Open(m_editor);
-      ImGui::EndMenu();
-    }
-    if (ImGui::BeginMenu("View")) {
-      bool prevMarkdown = m_enableMarkdown;
-      ImGui::MenuItem("Markdown Highlighting", nullptr, &m_enableMarkdown);
-      if (m_enableMarkdown != prevMarkdown) {
-        m_themeManager.ApplyMarkdownMode(m_enableMarkdown, m_editor);
-      }
-
-      ImGui::Separator();
-
-      bool prevTheme = m_isDarkTheme;
-      ImGui::MenuItem("Dark Theme", nullptr, &m_isDarkTheme);
-      if (m_isDarkTheme != prevTheme) {
-        m_themeManager.ApplyTheme(m_isDarkTheme, m_editor);
-      }
-
-      if (ImGui::MenuItem("Zoom In", "Ctrl++")) m_currentFontIndex++;
-      if (ImGui::MenuItem("Zoom Out", "Ctrl+-")) m_currentFontIndex--;
-      if (ImGui::MenuItem("Reset Zoom", "Ctrl+0"))
-        m_currentFontIndex = kDefaultFontIndex;
-
-      ImGui::EndMenu();
-    }
-    if (m_menuFont) ImGui::PopFont();
-    ImGui::EndMainMenuBar();
-  }
-  ImGui::PopStyleVar();
-}
-
 void NotepadApp::RenderEditor() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGuiWindowFlags windowFlags =
@@ -206,22 +113,22 @@ void NotepadApp::RenderEditor() {
       ImGuiWindowFlags_NoBringToFrontOnFocus;
   ImGui::Begin("MainWorkspace", nullptr, windowFlags);
 
-  if (m_focusEditorOnStart) {
+  if (m_state.focusEditorOnStart) {
     ImGui::SetKeyboardFocusHere();
-    m_focusEditorOnStart = false;
+    m_state.focusEditorOnStart = false;
   }
 
-  if (m_currentFontIndex >= 0 &&
-      m_currentFontIndex < (int)m_editorFonts.size() &&
-      m_editorFonts[m_currentFontIndex]) {
-    ImGui::PushFont(m_editorFonts[m_currentFontIndex]);
+  if (m_state.currentFontIndex >= 0 &&
+      m_state.currentFontIndex < (int)m_editorFonts.size() &&
+      m_editorFonts[m_state.currentFontIndex]) {
+    ImGui::PushFont(m_editorFonts[m_state.currentFontIndex]);
   }
 
   m_editor.Render("TextEditor");
 
-  if (m_currentFontIndex >= 0 &&
-      m_currentFontIndex < (int)m_editorFonts.size() &&
-      m_editorFonts[m_currentFontIndex]) {
+  if (m_state.currentFontIndex >= 0 &&
+      m_state.currentFontIndex < (int)m_editorFonts.size() &&
+      m_editorFonts[m_state.currentFontIndex]) {
     ImGui::PopFont();
   }
   ImGui::End();
@@ -229,12 +136,12 @@ void NotepadApp::RenderEditor() {
 }
 
 void NotepadApp::UpdateWindowTitle() {
-  if (m_currentFilePath != m_lastFilePath) {
-    std::string title = m_currentFilePath.empty()
+  if (m_state.currentFilePath != m_state.lastFilePath) {
+    std::string title = m_state.currentFilePath.empty()
                             ? "Fast Notepad - Untitled"
-                            : "Fast Notepad - " + m_currentFilePath;
+                            : "Fast Notepad - " + m_state.currentFilePath;
     m_windowCtx.SetWindowTitle(title.c_str());
-    m_lastFilePath = m_currentFilePath;
+    m_state.lastFilePath = m_state.currentFilePath;
   }
 }
 
@@ -247,12 +154,13 @@ int NotepadApp::Run() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    HandleShortcuts();
-    if (m_currentFontIndex < 0) m_currentFontIndex = 0;
-    if (m_currentFontIndex >= (int)m_editorFonts.size())
-      m_currentFontIndex = (int)m_editorFonts.size() - 1;
+    m_shortcutManager.Handle(m_state, m_editor, m_findPanel);
+    if (m_state.currentFontIndex < 0) m_state.currentFontIndex = 0;
+    if (m_state.currentFontIndex >= (int)m_editorFonts.size())
+      m_state.currentFontIndex = (int)m_editorFonts.size() - 1;
 
-    RenderMenuBar();
+    m_menuBar.Render(m_state, m_editor, m_themeManager, m_findPanel,
+                     m_windowCtx, m_menuFont);
 
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -261,13 +169,13 @@ int NotepadApp::Run() {
     RenderEditor();
     m_findPanel.Render(m_editor, viewport);
 
-    if (m_showErrorPopup) {
+    if (m_state.showErrorPopup) {
       ImGui::OpenPopup("Error");
-      m_showErrorPopup = false;
+      m_state.showErrorPopup = false;
     }
     if (ImGui::BeginPopupModal("Error", NULL,
                                ImGuiWindowFlags_AlwaysAutoResize)) {
-      ImGui::Text("%s", m_errorMessage.c_str());
+      ImGui::Text("%s", m_state.errorMessage.c_str());
       if (ImGui::Button("OK", ImVec2(120, 0))) {
         ImGui::CloseCurrentPopup();
       }
@@ -281,21 +189,85 @@ int NotepadApp::Run() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     m_windowCtx.SwapBuffers();
 
-    std::string errorMessage;
-    if (!m_fileHandler.HandleDialogs(m_currentFilePath, m_editor, m_triggerOpen,
-                                     m_triggerSave, m_triggerSaveAs,
-                                     errorMessage)) {
-      m_showErrorPopup = true;
-      m_errorMessage = errorMessage;
+    if (m_isLoading && m_loadFuture.valid()) {
+      if (m_loadFuture.wait_for(std::chrono::seconds(0)) ==
+          std::future_status::ready) {
+        auto result = m_loadFuture.get();
+        if (result.has_value()) {
+          m_editor.SetText(result.value());
+          m_state.currentFilePath = m_pendingFilePath;
+        } else {
+          m_state.showErrorPopup = true;
+          m_state.errorMessage = "Failed to load file: " + m_pendingFilePath;
+        }
+        m_isLoading = false;
+      }
+    }
+
+    if (m_isSaving && m_saveFuture.valid()) {
+      if (m_saveFuture.wait_for(std::chrono::seconds(0)) ==
+          std::future_status::ready) {
+        bool result = m_saveFuture.get();
+        if (result) {
+          m_state.currentFilePath = m_pendingFilePath;
+        } else {
+          m_state.showErrorPopup = true;
+          m_state.errorMessage = "Failed to save file: " + m_pendingFilePath;
+        }
+        m_isSaving = false;
+      }
+    }
+
+    if (!m_isLoading && !m_isSaving) {
+      if (m_state.triggerOpen) {
+        std::string result = m_nativeDialogs.OpenFile();
+        if (!result.empty()) {
+          m_pendingFilePath = result;
+          m_isLoading = true;
+          m_loadFuture = m_fileHandler.LoadFileAsync(result);
+        }
+        m_state.triggerOpen = false;
+      }
+      if (m_state.triggerSave) {
+        if (m_state.currentFilePath.empty()) {
+          m_state.triggerSaveAs = true;
+        } else {
+          m_pendingFilePath = m_state.currentFilePath;
+          m_isSaving = true;
+          m_saveFuture = m_fileHandler.SaveFileAsync(m_pendingFilePath,
+                                                     m_editor.GetText());
+        }
+        m_state.triggerSave = false;
+      }
+      if (m_state.triggerSaveAs) {
+        std::string result = m_nativeDialogs.SaveFile();
+        if (!result.empty()) {
+          m_pendingFilePath = result;
+          m_isSaving = true;
+          m_saveFuture =
+              m_fileHandler.SaveFileAsync(result, m_editor.GetText());
+        }
+        m_state.triggerSaveAs = false;
+      }
+    }
+
+    if (m_isLoading || m_isSaving) {
+      ImGui::OpenPopup("Progress");
+      if (ImGui::BeginPopupModal("Progress", NULL,
+                                 ImGuiWindowFlags_AlwaysAutoResize |
+                                     ImGuiWindowFlags_NoTitleBar)) {
+        ImGui::Text(m_isLoading ? "Loading..." : "Saving...");
+        ImGui::EndPopup();
+      }
     }
   }
 
   AppSettings settings;
-  settings.enableMarkdown = m_enableMarkdown;
-  settings.isDarkTheme = m_isDarkTheme;
-  settings.currentFontIndex = m_currentFontIndex;
+  settings.enableMarkdown = m_state.enableMarkdown;
+  settings.isDarkTheme = m_state.isDarkTheme;
+  settings.currentFontIndex = m_state.currentFontIndex;
   SessionManager::SaveSettings(settings);
 
-  SessionManager::SaveSessionState(m_currentFilePath, m_editor.GetText());
+  SessionManager::SaveSessionState(m_state.currentFilePath, m_editor.GetText());
   return 0;
 }

@@ -14,6 +14,7 @@ if command -v gcovr >/dev/null 2>&1; then
                     --filter ".*/src/.*" \
                     --xml coverage/coverage.xml \
                     --html-details coverage/index.html \
+                    --gcov-ignore-errors=no_working_dir_found \
                     --print-summary
 else
     echo "gcovr not found. Skipping coverage report."

@@ -1,4 +1,6 @@
 #pragma once
+#include <future>
+#include <optional>
 #include <string>
 
 #include "IFileDialog.h"
@@ -14,6 +16,10 @@ class FileHandler {
                 std::string& currentFilePath);
   bool SaveFile(const std::string& filepath, TextEditor& editor,
                 std::string& currentFilePath);
+  std::future<std::optional<std::string>> LoadFileAsync(
+      const std::string& filepath);
+  std::future<bool> SaveFileAsync(const std::string& filepath,
+                                  std::string content);
 
  private:
   IAppFileDialog* m_dialogs;

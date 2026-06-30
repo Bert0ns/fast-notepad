@@ -1,10 +1,15 @@
 #pragma once
+#include <future>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "AppState.h"
 #include "FileHandler.h"
 #include "FindPanel.h"
+#include "MenuBar.h"
 #include "NativeFileDialog.h"
+#include "ShortcutManager.h"
 #include "TextEditor.h"
 #include "ThemeManager.h"
 #include "WindowContext.h"
@@ -19,8 +24,6 @@ class NotepadApp {
 
  private:
   void LoadFonts();
-  void HandleShortcuts();
-  void RenderMenuBar();
   void RenderEditor();
   void UpdateWindowTitle();
   void SelectAllText();
@@ -33,20 +36,18 @@ class NotepadApp {
   FileHandler m_fileHandler;
   FindPanel m_findPanel;
 
-  std::string m_currentFilePath;
-  std::string m_lastFilePath = "UNINITIALIZED";
+  MenuBar m_menuBar;
+  ShortcutManager m_shortcutManager;
 
-  bool m_triggerOpen = false;
-  bool m_triggerSaveAs = false;
-  bool m_triggerSave = false;
-
-  bool m_enableMarkdown = true;
-  bool m_isDarkTheme = true;
-  bool m_focusEditorOnStart = true;
-  bool m_showErrorPopup = false;
-  std::string m_errorMessage = "";
+  AppState m_state;
 
   std::vector<struct ImFont*> m_editorFonts;
   struct ImFont* m_menuFont = nullptr;
+
+  std::future<std::optional<std::string>> m_loadFuture;
+  std::future<bool> m_saveFuture;
+  std::string m_pendingFilePath;
+  bool m_isLoading = false;
+  bool m_isSaving = false;
   int m_currentFontIndex = 3;  // kDefaultFontIndex
 };

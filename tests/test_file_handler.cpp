@@ -116,6 +116,37 @@ TEST_CASE("FileHandler Load and Save", "[FileHandler]") {
     REQUIRE(tOpen == false);
   }
 
+  SECTION("LoadFileAsync") {
+    // Reset file contents
+    {
+      std::ofstream out(testPath);
+      out << testContent;
+    }
+
+    auto future = handler.LoadFileAsync(testPath);
+    future.wait();
+    auto result = future.get();
+    REQUIRE(result.has_value());
+    REQUIRE(result.value() == testContent);
+
+    // Test failure
+    auto futureFail = handler.LoadFileAsync("non_existent_file.xyz");
+    futureFail.wait();
+    REQUIRE(futureFail.get().has_value() == false);
+  }
+
+  SECTION("SaveFileAsync") {
+    std::string asyncContent = "Async Save Test\n";
+    auto future = handler.SaveFileAsync(testPath, asyncContent);
+    future.wait();
+    REQUIRE(future.get() == true);
+
+    std::ifstream in3(testPath);
+    std::stringstream buffer3;
+    buffer3 << in3.rdbuf();
+    REQUIRE(buffer3.str() == asyncContent);
+  }
+
   // Cleanup
   std::filesystem::remove(testPath);
   ImGui::DestroyContext();
