@@ -4,9 +4,9 @@
 
 #include "FileHandler.h"
 #include "FindPanel.h"
+#include "NativeFileDialog.h"
 #include "TextEditor.h"
 #include "ThemeManager.h"
-#include "NativeFileDialog.h"
 #include "WindowContext.h"
 
 class NotepadApp {
@@ -43,6 +43,8 @@ class NotepadApp {
   bool m_enableMarkdown = true;
   bool m_isDarkTheme = true;
   bool m_focusEditorOnStart = true;
+  bool m_showErrorPopup = false;
+  std::string m_errorMessage = "";
 
   std::vector<struct ImFont*> m_editorFonts;
   struct ImFont* m_menuFont = nullptr;

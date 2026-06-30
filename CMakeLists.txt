@@ -23,7 +23,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(imgui)
 
 # 3. Fetch ImGuiColorTextEdit
-FetchContent_Declare(textedit GIT_REPOSITORY https://github.com/BalazsJako/ImGuiColorTextEdit.git GIT_TAG master)
+FetchContent_Declare(textedit GIT_REPOSITORY https://github.com/BalazsJako/ImGuiColorTextEdit.git GIT_TAG ca2f9f1462e3b60e56351bc466acda448c5ea50d)
 FetchContent_MakeAvailable(textedit)
 # Patch TextEditor.cpp for ImGui 1.90+ compatibility
 file(READ "${textedit_SOURCE_DIR}/TextEditor.cpp" TEXT_EDITOR_CPP)
@@ -32,14 +32,14 @@ string(REPLACE "ImGui::PopItemFlag();" "/* patched pop item flag */" TEXT_EDITOR
 file(WRITE "${textedit_SOURCE_DIR}/TextEditor.cpp" "${TEXT_EDITOR_CPP}")
 
 # 4. Fetch Portable File Dialogs
-FetchContent_Declare(pfd GIT_REPOSITORY https://github.com/samhocevar/portable-file-dialogs.git GIT_TAG main)
+FetchContent_Declare(pfd GIT_REPOSITORY https://github.com/samhocevar/portable-file-dialogs.git GIT_TAG c12ea8c9a727f5320a2b4570aee863bbede2a204)
 FetchContent_GetProperties(pfd)
 if(NOT pfd_POPULATED)
     FetchContent_Populate(pfd)
 endif()
 
 # 5. Fetch stb (image loader)
-FetchContent_Declare(stb GIT_REPOSITORY https://github.com/nothings/stb.git GIT_TAG master)
+FetchContent_Declare(stb GIT_REPOSITORY https://github.com/nothings/stb.git GIT_TAG 31c1ad37456438565541f4919958214b6e762fb4)
 FetchContent_GetProperties(stb)
 if(NOT stb_POPULATED)
     FetchContent_Populate(stb)

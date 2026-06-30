@@ -54,10 +54,11 @@ TEST_CASE("FileHandler Load and Save", "[FileHandler]") {
     bool tOpen = false;
     bool tSave = true;
     bool tSaveAs = false;
+    std::string err;
 
     // Change text
     editor.SetText("Modified text via HandleDialogs\n");
-    handler.HandleDialogs(currentFile, editor, tOpen, tSave, tSaveAs);
+    handler.HandleDialogs(currentFile, editor, tOpen, tSave, tSaveAs, err);
 
     REQUIRE(tSave == false);
     REQUIRE(tSaveAs ==
@@ -71,27 +72,48 @@ TEST_CASE("FileHandler Load and Save", "[FileHandler]") {
 
   SECTION("HandleDialogs with MockFileDialog") {
     class MockFileDialog : public IAppFileDialog {
-    public:
+     public:
       std::string openResult;
       std::string saveResult;
       std::string OpenFile() override { return openResult; }
       std::string SaveFile() override { return saveResult; }
     };
-    
+
     MockFileDialog mockDialog;
     FileHandler mockHandler(&mockDialog);
-    
+
     // Test Open
     bool tOpen = true, tSave = false, tSaveAs = false;
     mockDialog.openResult = testPath;
-    
+
     // Reset editor
     editor.SetText("");
-    mockHandler.HandleDialogs(currentFile, editor, tOpen, tSave, tSaveAs);
-    
+    std::string err2;
+    mockHandler.HandleDialogs(currentFile, editor, tOpen, tSave, tSaveAs, err2);
+
     REQUIRE(tOpen == false);
     REQUIRE(editor.GetText() == "New Line 1\nNew Line 2\n\n\n");
     REQUIRE(currentFile == testPath);
+  }
+
+  SECTION("HandleDialogs failure handling") {
+    class FailingFileDialog : public IAppFileDialog {
+     public:
+      std::string OpenFile() override { return "non_existent_file.xyz"; }
+      std::string SaveFile() override { return "non_existent_dir/file.txt"; }
+    };
+
+    FailingFileDialog failDialog;
+    FileHandler failHandler(&failDialog);
+
+    bool tOpen = true, tSave = false, tSaveAs = false;
+    std::string err3;
+    bool result = failHandler.HandleDialogs(currentFile, editor, tOpen, tSave,
+                                            tSaveAs, err3);
+
+    REQUIRE(result == false);
+    REQUIRE(err3 == "Failed to load file: non_existent_file.xyz");
+    REQUIRE(tOpen == false);
   }
 
   // Cleanup

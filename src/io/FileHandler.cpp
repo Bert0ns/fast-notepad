@@ -5,7 +5,7 @@
 
 FileHandler::FileHandler(IAppFileDialog* dialogs) : m_dialogs(dialogs) {}
 
-void FileHandler::LoadFile(const std::string& filepath, TextEditor& editor,
+bool FileHandler::LoadFile(const std::string& filepath, TextEditor& editor,
                            std::string& currentFilePath) {
   std::ifstream file(filepath, std::ios::binary | std::ios::ate);
   if (file.is_open()) {
@@ -15,27 +15,36 @@ void FileHandler::LoadFile(const std::string& filepath, TextEditor& editor,
     if (file.read(&buffer[0], size)) {
       editor.SetText(buffer);
       currentFilePath = filepath;
+      return true;
     }
   }
+  return false;
 }
 
-void FileHandler::SaveFile(const std::string& filepath, TextEditor& editor,
+bool FileHandler::SaveFile(const std::string& filepath, TextEditor& editor,
                            std::string& currentFilePath) {
   std::ofstream file(filepath);
   if (file.is_open()) {
     file << editor.GetText();
     currentFilePath = filepath;
+    return true;
   }
+  return false;
 }
 
-void FileHandler::HandleDialogs(std::string& currentFilePath,
+bool FileHandler::HandleDialogs(std::string& currentFilePath,
                                 TextEditor& editor, bool& triggerOpen,
-                                bool& triggerSave, bool& triggerSaveAs) {
+                                bool& triggerSave, bool& triggerSaveAs,
+                                std::string& errorMessage) {
+  bool success = true;
   if (triggerOpen) {
     if (m_dialogs) {
       std::string result = m_dialogs->OpenFile();
       if (!result.empty()) {
-        LoadFile(result, editor, currentFilePath);
+        if (!LoadFile(result, editor, currentFilePath)) {
+          errorMessage = "Failed to load file: " + result;
+          success = false;
+        }
       }
     }
     triggerOpen = false;
@@ -44,7 +53,10 @@ void FileHandler::HandleDialogs(std::string& currentFilePath,
     if (currentFilePath.empty()) {
       triggerSaveAs = true;
     } else {
-      SaveFile(currentFilePath, editor, currentFilePath);
+      if (!SaveFile(currentFilePath, editor, currentFilePath)) {
+        errorMessage = "Failed to save file: " + currentFilePath;
+        success = false;
+      }
     }
     triggerSave = false;
   }
@@ -52,9 +64,13 @@ void FileHandler::HandleDialogs(std::string& currentFilePath,
     if (m_dialogs) {
       std::string result = m_dialogs->SaveFile();
       if (!result.empty()) {
-        SaveFile(result, editor, currentFilePath);
+        if (!SaveFile(result, editor, currentFilePath)) {
+          errorMessage = "Failed to save file: " + result;
+          success = false;
+        }
       }
     }
     triggerSaveAs = false;
   }
+  return success;
 }

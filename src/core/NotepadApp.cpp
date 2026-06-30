@@ -1,7 +1,7 @@
 #define GL_SILENCE_DEPRECATION
 #include "NotepadApp.h"
-#include <GLFW/glfw3.h>
 
+#include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -24,8 +24,7 @@ constexpr float kMenuBarPaddingY = 12.0f;
 
 NotepadApp::NotepadApp() : m_fileHandler(&m_nativeDialogs) {}
 
-NotepadApp::~NotepadApp() {
-}
+NotepadApp::~NotepadApp() {}
 
 bool NotepadApp::Init() {
   if (!m_windowCtx.Init(kWindowWidth, kWindowHeight, kWindowTitle)) {
@@ -262,6 +261,19 @@ int NotepadApp::Run() {
     RenderEditor();
     m_findPanel.Render(m_editor, viewport);
 
+    if (m_showErrorPopup) {
+      ImGui::OpenPopup("Error");
+      m_showErrorPopup = false;
+    }
+    if (ImGui::BeginPopupModal("Error", NULL,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+      ImGui::Text("%s", m_errorMessage.c_str());
+      if (ImGui::Button("OK", ImVec2(120, 0))) {
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::EndPopup();
+    }
+
     ImGui::Render();
     ImVec4 clearColor = m_themeManager.GetClearColor();
     glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
@@ -269,8 +281,13 @@ int NotepadApp::Run() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     m_windowCtx.SwapBuffers();
 
-    m_fileHandler.HandleDialogs(m_currentFilePath, m_editor, m_triggerOpen,
-                                m_triggerSave, m_triggerSaveAs);
+    std::string errorMessage;
+    if (!m_fileHandler.HandleDialogs(m_currentFilePath, m_editor, m_triggerOpen,
+                                     m_triggerSave, m_triggerSaveAs,
+                                     errorMessage)) {
+      m_showErrorPopup = true;
+      m_errorMessage = errorMessage;
+    }
   }
 
   AppSettings settings;
