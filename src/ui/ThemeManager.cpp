@@ -46,7 +46,7 @@ void ThemeManager::ApplyTheme(bool isDarkTheme, TextEditor& editor) {
     ImGui::StyleColorsLight();
     auto palette = TextEditor::GetLightPalette();
     palette[(int)TextEditor::PaletteIndex::Selection] =
-        0x80ffb080;  // Light sky blue highlighter
+        0x80ebce87;  // Light sky blue highlighter
     editor.SetPalette(palette);
     m_clearColor = ImVec4(0.95f, 0.95f, 0.95f, 1.0f);
   }

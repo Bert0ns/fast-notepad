@@ -323,7 +323,6 @@ int NotepadApp::Run() {
           auto result = tab->loadFuture.get();
           if (result.has_value()) {
             tab->editor.SetText(result.value());
-            tab->currentFilePath = tab->pendingFilePath;
             tab->isDirty = false;
           } else {
             m_state.showErrorPopup = true;
@@ -363,7 +362,20 @@ int NotepadApp::Run() {
         m_state.triggerOpen = false;
       }
       if (m_state.triggerExit) {
-        ExecuteExit();
+        bool hasDirty = false;
+        for (int i = 0; i < (int)m_tabs.size(); ++i) {
+          if (m_tabs[i]->isDirty) {
+            m_state.forceSelectTab = i;
+            m_state.pendingAction = AppState::PendingAction::Exit;
+            m_pendingCloseTabIndex = i;
+            m_state.showUnsavedChangesModal = true;
+            hasDirty = true;
+            break;
+          }
+        }
+        if (!hasDirty) {
+          ExecuteExit();
+        }
         m_state.triggerExit = false;
       }
       if (m_state.triggerSave) {

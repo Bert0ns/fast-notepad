@@ -132,14 +132,23 @@ void FindPanel::ReplaceAll(TextEditor& editor) {
   if (query.empty()) return;
   std::string replaceWith(m_replaceBuffer.data());
 
-  editor.SetCursorPosition({0, 0});
-  int count = 0;
-  bool wrapped = false;
+  std::string fullText = editor.GetText();
+  if (fullText.empty()) return;
 
-  while (FindNextMatch(editor, query, false, wrapped)) {
-    editor.Delete();
-    editor.InsertText(replaceWith);
+  if (fullText.back() == '\n') {
+    fullText.pop_back();
+  }
+
+  size_t pos = 0;
+  int count = 0;
+  while ((pos = fullText.find(query, pos)) != std::string::npos) {
+    fullText.replace(pos, query.length(), replaceWith);
+    pos += replaceWith.length();
     count++;
+  }
+
+  if (count > 0) {
+    editor.SetText(fullText);
   }
 
   m_replaceCount = count;
