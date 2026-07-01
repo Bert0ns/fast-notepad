@@ -158,12 +158,6 @@ void NotepadApp::ExecuteExit() { m_windowCtx.SetShouldClose(true); }
 
 void NotepadApp::HandlePendingAction() {
   switch (m_state.pendingAction) {
-    case AppState::PendingAction::New:
-      ExecuteNew();
-      break;
-    case AppState::PendingAction::Open:
-      ExecuteOpen();
-      break;
     case AppState::PendingAction::CloseTab:
       ExecuteCloseTab(m_pendingCloseTabIndex);
       break;

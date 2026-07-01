@@ -1,10 +1,16 @@
 #include "FindPanel.h"
+
 #include "Utf8Utils.h"
 
-void FindPanel::Open(TextEditor& editor) {
+void FindPanel::Open(TextEditor& editor, bool replaceMode) {
   UpdateBufferFromSelection(editor);
   m_show = true;
-  m_focusInput = true;
+  m_showReplace = replaceMode;
+  if (replaceMode)
+    m_focusReplace = true;
+  else
+    m_focusInput = true;
+  m_replaceCount = -1;
 }
 
 void FindPanel::Close() { m_show = false; }
@@ -18,8 +24,6 @@ void FindPanel::UpdateBufferFromSelection(TextEditor& editor) {
   if (selected.empty()) return;
   std::snprintf(m_findBuffer.data(), m_findBuffer.size(), "%s",
                 selected.c_str());
-
-
 }
 
 int FindPanel::ByteIndexToColumn(const std::string& line, int byteIndex,
@@ -109,6 +113,40 @@ bool FindPanel::FindNextMatch(TextEditor& editor, const std::string& query,
   return false;
 }
 
+void FindPanel::ReplaceNext(TextEditor& editor) {
+  std::string query(m_findBuffer.data());
+  if (query.empty()) return;
+  std::string replaceWith(m_replaceBuffer.data());
+
+  if (editor.HasSelection() && editor.GetSelectedText() == query) {
+    editor.Delete();
+    editor.InsertText(replaceWith);
+  }
+
+  m_findFailed = !FindNextMatch(editor, query, m_wrapSearch, m_findWrapped);
+  m_replaceCount = -1;
+}
+
+void FindPanel::ReplaceAll(TextEditor& editor) {
+  std::string query(m_findBuffer.data());
+  if (query.empty()) return;
+  std::string replaceWith(m_replaceBuffer.data());
+
+  editor.SetCursorPosition({0, 0});
+  int count = 0;
+  bool wrapped = false;
+
+  while (FindNextMatch(editor, query, false, wrapped)) {
+    editor.Delete();
+    editor.InsertText(replaceWith);
+    count++;
+  }
+
+  m_replaceCount = count;
+  m_findFailed = false;
+  m_findWrapped = false;
+}
+
 void FindPanel::Render(TextEditor& editor, ImGuiViewport* viewport) {
   if (!m_show) return;
 
@@ -135,14 +173,40 @@ void FindPanel::Render(TextEditor& editor, ImGuiViewport* viewport) {
 
     ImGui::SameLine();
     ImGui::Checkbox("Wrap", &m_wrapSearch);
+    ImGui::SameLine();
+    ImGui::Checkbox("Replace Mode", &m_showReplace);
 
     if (submit) {
       std::string query(m_findBuffer.data());
       m_findFailed = !FindNextMatch(editor, query, m_wrapSearch, m_findWrapped);
+      m_replaceCount = -1;
       if (!m_findFailed) m_show = true;
     }
 
-    if (m_findFailed) {
+    if (m_showReplace) {
+      if (m_focusReplace) {
+        ImGui::SetKeyboardFocusHere();
+        m_focusReplace = false;
+      }
+      ImGuiInputTextFlags repFlags = ImGuiInputTextFlags_EnterReturnsTrue;
+      bool repSubmit =
+          ImGui::InputText("##ReplaceInput", m_replaceBuffer.data(),
+                           m_replaceBuffer.size(), repFlags);
+      ImGui::SameLine();
+      if (ImGui::Button("Replace")) repSubmit = true;
+      ImGui::SameLine();
+      if (ImGui::Button("Replace All")) {
+        ReplaceAll(editor);
+      }
+
+      if (repSubmit) {
+        ReplaceNext(editor);
+      }
+    }
+
+    if (m_replaceCount >= 0) {
+      ImGui::Text("%d occurrence(s) replaced.", m_replaceCount);
+    } else if (m_findFailed) {
       ImGui::TextUnformatted("No matches found.");
     } else if (m_findWrapped) {
       ImGui::TextUnformatted("Wrapped to start.");

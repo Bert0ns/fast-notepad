@@ -18,6 +18,9 @@ void ShortcutManager::Handle(AppState& state, TextEditor& editor,
   if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F, false)) {
     findPanel.Open(editor);
   }
+  if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_H, false)) {
+    findPanel.Open(editor, true);
+  }
   if (io.KeyCtrl && io.MouseWheel != 0.0f) {
     if (io.MouseWheel > 0)
       state.currentFontIndex++;

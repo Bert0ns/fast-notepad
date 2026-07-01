@@ -37,6 +37,7 @@ void MenuBar::Render(AppState& state, TextEditor& editor,
       if (ImGui::MenuItem("Paste", "Ctrl+V")) editor.Paste();
       ImGui::Separator();
       if (ImGui::MenuItem("Find", "Ctrl+F")) findPanel.Open(editor);
+      if (ImGui::MenuItem("Replace", "Ctrl+H")) findPanel.Open(editor, true);
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("View")) {

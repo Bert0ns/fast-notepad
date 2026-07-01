@@ -4,10 +4,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <string>
 
+#include "FindPanel.h"
 #include "TextEditor.h"
 #include "Utf8Utils.h"
-
-#include "FindPanel.h"
 
 TEST_CASE("FindPanel Logic", "[FindPanel]") {
   // TextEditor requires ImGui context for Palette initialization
@@ -85,6 +84,47 @@ TEST_CASE("FindPanel Logic", "[FindPanel]") {
     REQUIRE(wrapped == true);
     REQUIRE(editor.GetCursorPosition().mLine == 0);
     REQUIRE(editor.GetCursorPosition().mColumn == 7);
+  }
+
+  SECTION("ReplaceNext") {
+    editor.SetText("one two two three");
+    std::string query = "two";
+    std::string replace = "four";
+    std::snprintf(panel.m_findBuffer.data(), panel.m_findBuffer.size(), "%s",
+                  query.c_str());
+    std::snprintf(panel.m_replaceBuffer.data(), panel.m_replaceBuffer.size(),
+                  "%s", replace.c_str());
+
+    editor.SetCursorPosition({0, 0});
+
+    // First ReplaceNext should just find it, because no selection matches yet
+    panel.ReplaceNext(editor);
+    REQUIRE(editor.GetSelectedText() == "two");
+    REQUIRE(editor.GetText() == "one two two three\n");
+
+    // Second ReplaceNext should replace and find next
+    panel.ReplaceNext(editor);
+    REQUIRE(editor.GetSelectedText() == "two");  // Found the second one
+    REQUIRE(editor.GetText() == "one four two three\n");
+
+    // Third should replace the second one, and find no more
+    panel.ReplaceNext(editor);
+    REQUIRE(editor.GetText() == "one four four three\n");
+    REQUIRE(panel.m_findFailed == true);
+  }
+
+  SECTION("ReplaceAll") {
+    editor.SetText("a b a c a d");
+    std::string query = "a";
+    std::string replace = "x";
+    std::snprintf(panel.m_findBuffer.data(), panel.m_findBuffer.size(), "%s",
+                  query.c_str());
+    std::snprintf(panel.m_replaceBuffer.data(), panel.m_replaceBuffer.size(),
+                  "%s", replace.c_str());
+
+    panel.ReplaceAll(editor);
+    REQUIRE(panel.m_replaceCount == 3);
+    REQUIRE(editor.GetText() == "x b x c x d\n");
   }
 
   SECTION("Render Panel") {
