@@ -42,14 +42,18 @@ bool NotepadApp::Init() {
     m_state.currentFontIndex = settings.currentFontIndex;
   }
 
-  m_themeManager.ApplyTheme(m_state.isDarkTheme, m_editor);
-  m_themeManager.ApplyMarkdownMode(m_state.enableMarkdown, m_editor);
-
-  std::string content;
-  if (SessionManager::LoadSessionState(m_state.currentFilePath, content)) {
-    m_editor.SetText(content);
+  std::vector<std::string> filePaths;
+  if (SessionManager::LoadSessionState(filePaths) && !filePaths.empty()) {
+    for (const auto& fp : filePaths) {
+      AddNewTab(fp);
+      auto tab = m_tabs.back().get();
+      tab->isLoading = true;
+      tab->loadFuture = m_fileHandler.LoadFileAsync(fp);
+    }
+    m_activeTabIndex = 0;
   } else {
-    m_editor.SetText("Start *typing* or open a file...");
+    AddNewTab();
+    m_tabs[0]->editor.SetText("Start *typing* or open a file...");
     SelectAllText();
   }
 
@@ -77,9 +81,11 @@ void NotepadApp::LoadFonts() {
 }
 
 void NotepadApp::SelectAllText() {
-  const auto lines = m_editor.GetTextLines();
+  auto tab = GetActiveTab();
+  if (!tab) return;
+  const auto lines = tab->editor.GetTextLines();
   if (lines.empty()) {
-    m_editor.SetCursorPosition({0, 0});
+    tab->editor.SetCursorPosition({0, 0});
     return;
   }
   const int lastLine = static_cast<int>(lines.size() - 1);
@@ -88,7 +94,7 @@ void NotepadApp::SelectAllText() {
   const std::string& line = lines[lastLine];
   int currentColumn = 0;
   int i = 0;
-  int tabSize = m_editor.GetTabSize();
+  int tabSize = tab->editor.GetTabSize();
   while (i < static_cast<int>(line.size())) {
     unsigned char c = static_cast<unsigned char>(line[i]);
     if (c == '\t') {
@@ -101,8 +107,73 @@ void NotepadApp::SelectAllText() {
   }
   endCol = currentColumn;
 
-  m_editor.SetSelection({0, 0}, {lastLine, endCol});
-  m_editor.SetCursorPosition({lastLine, endCol});
+  tab->editor.SetSelection({0, 0}, {lastLine, endCol});
+  tab->editor.SetCursorPosition({lastLine, endCol});
+}
+
+EditorTab* NotepadApp::GetActiveTab() {
+  if (m_activeTabIndex >= 0 && m_activeTabIndex < (int)m_tabs.size()) {
+    return m_tabs[m_activeTabIndex].get();
+  }
+  return nullptr;
+}
+
+void NotepadApp::AddNewTab(const std::string& filePath) {
+  auto tab = std::make_unique<EditorTab>();
+  tab->currentFilePath = filePath;
+  m_themeManager.ApplyTheme(m_state.isDarkTheme, tab->editor);
+  m_themeManager.ApplyMarkdownMode(m_state.enableMarkdown, tab->editor);
+  m_tabs.push_back(std::move(tab));
+  m_state.forceSelectTab = (int)m_tabs.size() - 1;
+  m_activeTabIndex = (int)m_tabs.size() - 1;
+}
+
+void NotepadApp::CloseTab(int index) {
+  if (index >= 0 && index < (int)m_tabs.size()) {
+    m_tabs.erase(m_tabs.begin() + index);
+    if (m_activeTabIndex >= (int)m_tabs.size()) {
+      m_activeTabIndex = m_tabs.size() - 1;
+    }
+    if (m_tabs.empty()) {
+      AddNewTab();
+    }
+  }
+}
+
+void NotepadApp::ExecuteCloseTab(int index) { CloseTab(index); }
+
+void NotepadApp::ExecuteNew() { AddNewTab(); }
+
+void NotepadApp::ExecuteOpen() {
+  std::string result = m_nativeDialogs.OpenFile();
+  if (!result.empty()) {
+    AddNewTab(result);
+    auto tab = GetActiveTab();
+    tab->isLoading = true;
+    tab->loadFuture = m_fileHandler.LoadFileAsync(result);
+  }
+}
+
+void NotepadApp::ExecuteExit() { m_windowCtx.SetShouldClose(true); }
+
+void NotepadApp::HandlePendingAction() {
+  switch (m_state.pendingAction) {
+    case AppState::PendingAction::New:
+      ExecuteNew();
+      break;
+    case AppState::PendingAction::Open:
+      ExecuteOpen();
+      break;
+    case AppState::PendingAction::CloseTab:
+      ExecuteCloseTab(m_pendingCloseTabIndex);
+      break;
+    case AppState::PendingAction::Exit:
+      ExecuteExit();
+      break;
+    default:
+      break;
+  }
+  m_state.pendingAction = AppState::PendingAction::None;
 }
 
 void NotepadApp::RenderEditor() {
@@ -124,7 +195,44 @@ void NotepadApp::RenderEditor() {
     ImGui::PushFont(m_editorFonts[m_state.currentFontIndex]);
   }
 
-  m_editor.Render("TextEditor");
+  if (ImGui::BeginTabBar(
+          "EditorTabs",
+          ImGuiTabBarFlags_Reorderable | ImGuiTabBarFlags_AutoSelectNewTabs)) {
+    for (int i = 0; i < (int)m_tabs.size(); ++i) {
+      auto& tab = m_tabs[i];
+      std::string title =
+          tab->currentFilePath.empty() ? "Untitled" : tab->currentFilePath;
+      size_t slash = title.find_last_of("/\\");
+      if (slash != std::string::npos) title = title.substr(slash + 1);
+      if (tab->isDirty) title += "*";
+      title += "###tab" + std::to_string(i);  // Unique ID
+
+      bool open = true;
+      ImGuiTabItemFlags flags =
+          (m_state.forceSelectTab == i) ? ImGuiTabItemFlags_SetSelected : 0;
+      if (ImGui::BeginTabItem(title.c_str(), &open, flags)) {
+        if (m_state.forceSelectTab == i) {
+          m_state.forceSelectTab = -1;  // reset after forcing
+        }
+        m_activeTabIndex = i;
+        tab->editor.Render("TextEditor");
+        ImGui::EndTabItem();
+      }
+
+      if (!open) {
+        // Tab closed button clicked
+        if (tab->isDirty) {
+          m_state.pendingAction = AppState::PendingAction::CloseTab;
+          m_pendingCloseTabIndex = i;
+          m_state.showUnsavedChangesModal = true;
+        } else {
+          ExecuteCloseTab(i);
+          --i;  // Adjust index after erase
+        }
+      }
+    }
+    ImGui::EndTabBar();
+  }
 
   if (m_state.currentFontIndex >= 0 &&
       m_state.currentFontIndex < (int)m_editorFonts.size() &&
@@ -136,17 +244,24 @@ void NotepadApp::RenderEditor() {
 }
 
 void NotepadApp::UpdateWindowTitle() {
-  if (m_state.currentFilePath != m_state.lastFilePath) {
-    std::string title = m_state.currentFilePath.empty()
-                            ? "Fast Notepad - Untitled"
-                            : "Fast Notepad - " + m_state.currentFilePath;
+  if (GetActiveTab() &&
+      GetActiveTab()->currentFilePath != GetActiveTab()->lastFilePath) {
+    std::string title =
+        GetActiveTab()->currentFilePath.empty()
+            ? "Fast Notepad - Untitled"
+            : "Fast Notepad - " + GetActiveTab()->currentFilePath;
     m_windowCtx.SetWindowTitle(title.c_str());
-    m_state.lastFilePath = m_state.currentFilePath;
+    GetActiveTab()->lastFilePath = GetActiveTab()->currentFilePath;
   }
 }
 
 int NotepadApp::Run() {
-  while (!m_windowCtx.ShouldClose()) {
+  while (!m_windowCtx.ShouldClose() || m_state.triggerExit) {
+    if (m_windowCtx.ShouldClose()) {
+      m_windowCtx.SetShouldClose(false);
+      m_state.triggerExit = true;
+    }
+
     m_windowCtx.PollEvents();
     UpdateWindowTitle();
 
@@ -154,20 +269,22 @@ int NotepadApp::Run() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    m_shortcutManager.Handle(m_state, m_editor, m_findPanel);
+    if (GetActiveTab())
+      m_shortcutManager.Handle(m_state, GetActiveTab()->editor, m_findPanel);
     if (m_state.currentFontIndex < 0) m_state.currentFontIndex = 0;
     if (m_state.currentFontIndex >= (int)m_editorFonts.size())
       m_state.currentFontIndex = (int)m_editorFonts.size() - 1;
 
-    m_menuBar.Render(m_state, m_editor, m_themeManager, m_findPanel,
-                     m_windowCtx, m_menuFont);
+    if (GetActiveTab())
+      m_menuBar.Render(m_state, GetActiveTab()->editor, m_themeManager,
+                       m_findPanel, m_windowCtx, m_menuFont);
 
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
 
     RenderEditor();
-    m_findPanel.Render(m_editor, viewport);
+    if (GetActiveTab()) m_findPanel.Render(GetActiveTab()->editor, viewport);
 
     if (m_state.showErrorPopup) {
       ImGui::OpenPopup("Error");
@@ -182,84 +299,137 @@ int NotepadApp::Run() {
       ImGui::EndPopup();
     }
 
-    ImGui::Render();
-    ImVec4 clearColor = m_themeManager.GetClearColor();
-    glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
-    glClear(GL_COLOR_BUFFER_BIT);
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    m_windowCtx.SwapBuffers();
-
-    if (m_isLoading && m_loadFuture.valid()) {
-      if (m_loadFuture.wait_for(std::chrono::seconds(0)) ==
-          std::future_status::ready) {
-        auto result = m_loadFuture.get();
-        if (result.has_value()) {
-          m_editor.SetText(result.value());
-          m_state.currentFilePath = m_pendingFilePath;
-        } else {
-          m_state.showErrorPopup = true;
-          m_state.errorMessage = "Failed to load file: " + m_pendingFilePath;
+    for (auto& tab : m_tabs) {
+      if (tab->isLoading && tab->loadFuture.valid()) {
+        if (tab->loadFuture.wait_for(std::chrono::seconds(0)) ==
+            std::future_status::ready) {
+          auto result = tab->loadFuture.get();
+          if (result.has_value()) {
+            tab->editor.SetText(result.value());
+            tab->currentFilePath = tab->pendingFilePath;
+            tab->isDirty = false;
+          } else {
+            m_state.showErrorPopup = true;
+            m_state.errorMessage =
+                "Failed to load file: " + tab->pendingFilePath;
+          }
+          tab->isLoading = false;
         }
-        m_isLoading = false;
+      }
+
+      if (tab->isSaving && tab->saveFuture.valid()) {
+        if (tab->saveFuture.wait_for(std::chrono::seconds(0)) ==
+            std::future_status::ready) {
+          bool result = tab->saveFuture.get();
+          if (result) {
+            tab->currentFilePath = tab->pendingFilePath;
+            tab->isDirty = false;
+            HandlePendingAction();
+          } else {
+            m_state.showErrorPopup = true;
+            m_state.errorMessage =
+                "Failed to save file: " + tab->pendingFilePath;
+          }
+          tab->isSaving = false;
+        }
       }
     }
 
-    if (m_isSaving && m_saveFuture.valid()) {
-      if (m_saveFuture.wait_for(std::chrono::seconds(0)) ==
-          std::future_status::ready) {
-        bool result = m_saveFuture.get();
-        if (result) {
-          m_state.currentFilePath = m_pendingFilePath;
-        } else {
-          m_state.showErrorPopup = true;
-          m_state.errorMessage = "Failed to save file: " + m_pendingFilePath;
-        }
-        m_isSaving = false;
+    if (GetActiveTab() && !GetActiveTab()->isLoading &&
+        !GetActiveTab()->isSaving) {
+      if (m_state.triggerNew) {
+        ExecuteNew();
+        m_state.triggerNew = false;
       }
-    }
-
-    if (!m_isLoading && !m_isSaving) {
       if (m_state.triggerOpen) {
-        std::string result = m_nativeDialogs.OpenFile();
-        if (!result.empty()) {
-          m_pendingFilePath = result;
-          m_isLoading = true;
-          m_loadFuture = m_fileHandler.LoadFileAsync(result);
-        }
+        ExecuteOpen();
         m_state.triggerOpen = false;
       }
+      if (m_state.triggerExit) {
+        ExecuteExit();
+        m_state.triggerExit = false;
+      }
       if (m_state.triggerSave) {
-        if (m_state.currentFilePath.empty()) {
+        if (GetActiveTab()->currentFilePath.empty()) {
           m_state.triggerSaveAs = true;
         } else {
-          m_pendingFilePath = m_state.currentFilePath;
-          m_isSaving = true;
-          m_saveFuture = m_fileHandler.SaveFileAsync(m_pendingFilePath,
-                                                     m_editor.GetText());
+          GetActiveTab()->pendingFilePath = GetActiveTab()->currentFilePath;
+          GetActiveTab()->isSaving = true;
+          GetActiveTab()->saveFuture =
+              m_fileHandler.SaveFileAsync(GetActiveTab()->pendingFilePath,
+                                          GetActiveTab()->editor.GetText());
         }
         m_state.triggerSave = false;
       }
       if (m_state.triggerSaveAs) {
         std::string result = m_nativeDialogs.SaveFile();
         if (!result.empty()) {
-          m_pendingFilePath = result;
-          m_isSaving = true;
-          m_saveFuture =
-              m_fileHandler.SaveFileAsync(result, m_editor.GetText());
+          GetActiveTab()->pendingFilePath = result;
+          GetActiveTab()->isSaving = true;
+          GetActiveTab()->saveFuture = m_fileHandler.SaveFileAsync(
+              result, GetActiveTab()->editor.GetText());
         }
         m_state.triggerSaveAs = false;
       }
     }
 
-    if (m_isLoading || m_isSaving) {
+    if (GetActiveTab() &&
+        (GetActiveTab()->isLoading || GetActiveTab()->isSaving)) {
       ImGui::OpenPopup("Progress");
       if (ImGui::BeginPopupModal("Progress", NULL,
                                  ImGuiWindowFlags_AlwaysAutoResize |
                                      ImGuiWindowFlags_NoTitleBar)) {
-        ImGui::Text(m_isLoading ? "Loading..." : "Saving...");
+        ImGui::Text(GetActiveTab()->isLoading ? "Loading..." : "Saving...");
         ImGui::EndPopup();
       }
     }
+
+    if (m_state.showUnsavedChangesModal) {
+      ImGui::OpenPopup("Unsaved Changes");
+      m_state.showUnsavedChangesModal = false;
+    }
+    if (ImGui::BeginPopupModal("Unsaved Changes", NULL,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+      ImGui::Text("You have unsaved changes. Would you like to save them?");
+      ImGui::Separator();
+
+      if (ImGui::Button("Save", ImVec2(120, 0))) {
+        m_state.triggerSave = true;
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::SetItemDefaultFocus();  // "Save" or "Don't Save"? Plan says "Don't
+                                     // Save" comes as pre-selected
+      ImGui::SameLine();
+
+      // Wait, Plan says: "Don't Save: Discard changes and proceed with the
+      // intercepted action. comes as pre-selected"
+      if (ImGui::Button("Don't Save", ImVec2(120, 0))) {
+        GetActiveTab()->isDirty = false;
+        HandlePendingAction();
+        ImGui::CloseCurrentPopup();
+      }
+      if (ImGui::IsItemFocused() == false && ImGui::IsWindowAppearing()) {
+        ImGui::SetKeyboardFocusHere(-1);  // Make "Don't Save" pre-selected
+      }
+
+      ImGui::SameLine();
+      if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+        m_state.pendingAction = AppState::PendingAction::None;
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::EndPopup();
+    }
+
+    if (GetActiveTab() && GetActiveTab()->editor.IsTextChanged()) {
+      GetActiveTab()->isDirty = true;
+    }
+
+    ImGui::Render();
+    ImVec4 clearColor = m_themeManager.GetClearColor();
+    glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
+    glClear(GL_COLOR_BUFFER_BIT);
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    m_windowCtx.SwapBuffers();
   }
 
   AppSettings settings;
@@ -268,6 +438,12 @@ int NotepadApp::Run() {
   settings.currentFontIndex = m_state.currentFontIndex;
   SessionManager::SaveSettings(settings);
 
-  SessionManager::SaveSessionState(m_state.currentFilePath, m_editor.GetText());
+  std::vector<std::string> filePaths;
+  for (auto& tab : m_tabs) {
+    if (!tab->currentFilePath.empty()) {
+      filePaths.push_back(tab->currentFilePath);
+    }
+  }
+  SessionManager::SaveSessionState(filePaths);
   return 0;
 }

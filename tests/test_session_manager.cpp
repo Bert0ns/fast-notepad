@@ -26,16 +26,16 @@ TEST_CASE("SessionManager Settings Save and Load", "[SessionManager]") {
 }
 
 TEST_CASE("SessionManager State Save and Load", "[SessionManager]") {
-  std::string testPath = "/dummy/path/test.txt";
-  std::string testContent = "Hello, world!\nThis is a test.";
+  std::vector<std::string> testPaths = {"/dummy/path/test1.txt",
+                                        "/dummy/path/test2.txt"};
 
-  SessionManager::SaveSessionState(testPath, testContent);
+  SessionManager::SaveSessionState(testPaths);
 
-  std::string loadedPath;
-  std::string loadedContent;
-  bool success = SessionManager::LoadSessionState(loadedPath, loadedContent);
+  std::vector<std::string> loadedPaths;
+  bool success = SessionManager::LoadSessionState(loadedPaths);
 
   REQUIRE(success == true);
-  REQUIRE(loadedPath == testPath);
-  REQUIRE(loadedContent == testContent);
+  REQUIRE(loadedPaths.size() == testPaths.size());
+  REQUIRE(loadedPaths[0] == testPaths[0]);
+  REQUIRE(loadedPaths[1] == testPaths[1]);
 }

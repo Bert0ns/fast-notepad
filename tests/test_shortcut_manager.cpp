@@ -37,6 +37,17 @@ TEST_CASE("ShortcutManager Logic", "[ShortcutManager]") {
     io.AddKeyEvent(ImGuiKey_O, false);
   }
 
+  SECTION("Ctrl+N sets triggerNew") {
+    io.AddKeyEvent(ImGuiKey_ModCtrl, true);
+    io.AddKeyEvent(ImGuiKey_N, true);
+    ImGui::NewFrame();
+    manager.Handle(state, editor, findPanel);
+    REQUIRE(state.triggerNew == true);
+    ImGui::EndFrame();
+    io.AddKeyEvent(ImGuiKey_ModCtrl, false);
+    io.AddKeyEvent(ImGuiKey_N, false);
+  }
+
   SECTION("Ctrl+S sets triggerSave") {
     io.AddKeyEvent(ImGuiKey_ModCtrl, true);
     io.AddKeyEvent(ImGuiKey_ModShift, false);

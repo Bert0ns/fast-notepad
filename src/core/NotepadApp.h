@@ -1,5 +1,6 @@
 #pragma once
 #include <future>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -12,7 +13,19 @@
 #include "ShortcutManager.h"
 #include "TextEditor.h"
 #include "ThemeManager.h"
-#include "WindowContext.h"
+
+struct EditorTab {
+  TextEditor editor;
+  std::string currentFilePath;
+  std::string lastFilePath = "UNINITIALIZED";
+  bool isDirty = false;
+
+  std::future<std::optional<std::string>> loadFuture;
+  std::future<bool> saveFuture;
+  std::string pendingFilePath;
+  bool isLoading = false;
+  bool isSaving = false;
+};
 
 class NotepadApp {
  public:
@@ -23,10 +36,19 @@ class NotepadApp {
   int Run();
 
  private:
+  void AddNewTab(const std::string& filePath = "");
+  void CloseTab(int index);
+  EditorTab* GetActiveTab();
+
   void LoadFonts();
   void RenderEditor();
   void UpdateWindowTitle();
   void SelectAllText();
+  void ExecuteNew();
+  void ExecuteOpen();
+  void ExecuteExit();
+  void ExecuteCloseTab(int index);
+  void HandlePendingAction();
 
   WindowContext m_windowCtx;
 
@@ -44,10 +66,9 @@ class NotepadApp {
   std::vector<struct ImFont*> m_editorFonts;
   struct ImFont* m_menuFont = nullptr;
 
-  std::future<std::optional<std::string>> m_loadFuture;
-  std::future<bool> m_saveFuture;
-  std::string m_pendingFilePath;
-  bool m_isLoading = false;
-  bool m_isSaving = false;
+  std::vector<std::unique_ptr<EditorTab>> m_tabs;
+  int m_activeTabIndex = 0;
+  int m_pendingCloseTabIndex = -1;
+
   int m_currentFontIndex = 3;  // kDefaultFontIndex
 };

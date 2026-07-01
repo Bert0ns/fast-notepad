@@ -2,12 +2,16 @@
 #include <string>
 
 struct AppState {
-  std::string currentFilePath;
-  std::string lastFilePath = "UNINITIALIZED";
-
+  int forceSelectTab = -1;
   bool triggerOpen = false;
   bool triggerSave = false;
   bool triggerSaveAs = false;
+  bool triggerNew = false;
+  bool triggerExit = false;
+
+  enum class PendingAction { None, Exit, CloseTab };
+  PendingAction pendingAction = PendingAction::None;
+  bool showUnsavedChangesModal = false;
 
   bool enableMarkdown = true;
   bool isDarkTheme = true;

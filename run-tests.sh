@@ -9,6 +9,7 @@ ctest --output-on-failure
 
 echo "Generating coverage report..."
 if command -v gcovr >/dev/null 2>&1; then
+    rm -rf coverage
     mkdir -p coverage
     gcovr -r .. --object-directory . \
                     --filter ".*/src/.*" \

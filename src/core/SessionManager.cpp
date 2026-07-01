@@ -1,9 +1,9 @@
 #include "SessionManager.h"
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <cstdlib>
 
 namespace {
 std::filesystem::path GetConfigDirectory() {
@@ -34,51 +34,39 @@ std::filesystem::path GetConfigDirectory() {
   std::filesystem::create_directories(configDir, ec);
   return configDir;
 }
-}
+}  // namespace
 
+void SessionManager::SaveSessionState(
+    const std::vector<std::string>& filePaths) {
+  auto path = GetConfigDirectory() / "session.txt";
 
-void SessionManager::SaveSessionState(const std::string& currentFilePath,
-                                      const std::string& content) {
-  auto path = GetConfigDirectory() / "autosave.txt";
-
-  std::ofstream file(path, std::ios::binary);
+  std::ofstream file(path);
   if (file.is_open()) {
-    file << currentFilePath << '\n';
-    file << content;
+    for (const auto& fp : filePaths) {
+      if (!fp.empty()) {
+        file << fp << '\n';
+      }
+    }
   }
 }
 
-bool SessionManager::LoadSessionState(std::string& currentFilePath,
-                                      std::string& content) {
-  auto path = GetConfigDirectory() / "autosave.txt";
+bool SessionManager::LoadSessionState(std::vector<std::string>& filePaths) {
+  auto path = GetConfigDirectory() / "session.txt";
 
-  std::ifstream file(path, std::ios::binary);
+  std::ifstream file(path);
   if (!file.is_open()) return false;
 
   std::string filepath;
-  std::getline(file, filepath);
-  if (!filepath.empty() && filepath.back() == '\r') {
-    filepath.pop_back();
-  }
-  currentFilePath = filepath;
-
-  std::stringstream buffer;
-  buffer << file.rdbuf();
-  content = buffer.str();
-
-  bool isEmpty = true;
-  for (char c : content) {
-    if (!std::isspace(static_cast<unsigned char>(c))) {
-      isEmpty = false;
-      break;
+  while (std::getline(file, filepath)) {
+    if (!filepath.empty() && filepath.back() == '\r') {
+      filepath.pop_back();
+    }
+    if (!filepath.empty()) {
+      filePaths.push_back(filepath);
     }
   }
 
-  if (currentFilePath.empty() && isEmpty) {
-    return false;
-  }
-
-  return true;
+  return !filePaths.empty();
 }
 
 void SessionManager::SaveSettings(const AppSettings& settings) {

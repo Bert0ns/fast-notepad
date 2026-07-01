@@ -7,6 +7,8 @@ void ShortcutManager::Handle(AppState& state, TextEditor& editor,
   ImGuiIO& io = ImGui::GetIO();
   if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false))
     state.triggerOpen = true;
+  if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N, false))
+    state.triggerNew = true;
   if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
     if (io.KeyShift)
       state.triggerSaveAs = true;

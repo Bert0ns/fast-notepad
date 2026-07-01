@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 struct AppSettings {
   bool enableMarkdown = true;
@@ -9,10 +10,8 @@ struct AppSettings {
 
 class SessionManager {
  public:
-  static void SaveSessionState(const std::string& currentFilePath,
-                               const std::string& content);
-  static bool LoadSessionState(std::string& currentFilePath,
-                               std::string& content);
+  static void SaveSessionState(const std::vector<std::string>& filePaths);
+  static bool LoadSessionState(std::vector<std::string>& filePaths);
   static void SaveSettings(const AppSettings& settings);
   static bool LoadSettings(AppSettings& settings);
 };

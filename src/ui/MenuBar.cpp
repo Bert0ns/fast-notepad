@@ -13,16 +13,15 @@ void MenuBar::Render(AppState& state, TextEditor& editor,
     if (menuFont) ImGui::PushFont(menuFont);
 
     if (ImGui::BeginMenu("File")) {
-      if (ImGui::MenuItem("New")) {
-        editor.SetText("");
-        state.currentFilePath = "";
+      if (ImGui::MenuItem("New", "Ctrl+N")) {
+        state.triggerNew = true;
       }
       if (ImGui::MenuItem("Open", "Ctrl+O")) state.triggerOpen = true;
       if (ImGui::MenuItem("Save", "Ctrl+S")) state.triggerSave = true;
       if (ImGui::MenuItem("Save As", "Ctrl+Shift+S"))
         state.triggerSaveAs = true;
       ImGui::Separator();
-      if (ImGui::MenuItem("Exit")) windowCtx.SetShouldClose(true);
+      if (ImGui::MenuItem("Exit")) state.triggerExit = true;
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Edit")) {
