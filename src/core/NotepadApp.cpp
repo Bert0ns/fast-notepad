@@ -17,7 +17,7 @@
 #include "Utf8Utils.h"
 
 static AppState::Language DetectLanguage(const std::string& filePath) {
-  if (filePath.empty()) return AppState::Language::None;
+  if (filePath.empty()) return AppState::Language::Markdown;
   size_t dotPos = filePath.find_last_of('.');
   if (dotPos == std::string::npos) return AppState::Language::None;
   std::string ext = filePath.substr(dotPos);
