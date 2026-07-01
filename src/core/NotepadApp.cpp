@@ -6,11 +6,33 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+#include <cctype>
 #include <chrono>
 
 #include "Platform.h"
 #include "SessionManager.h"
+#include "ShortcutManager.h"
+#include "TextEditor.h"
+#include "ThemeManager.h"
 #include "Utf8Utils.h"
+
+static AppState::Language DetectLanguage(const std::string& filePath) {
+  if (filePath.empty()) return AppState::Language::None;
+  size_t dotPos = filePath.find_last_of('.');
+  if (dotPos == std::string::npos) return AppState::Language::None;
+  std::string ext = filePath.substr(dotPos);
+  for (char& c : ext)
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+  if (ext == ".md") return AppState::Language::Markdown;
+  if (ext == ".cpp" || ext == ".h" || ext == ".c" || ext == ".hpp")
+    return AppState::Language::Cpp;
+  if (ext == ".json") return AppState::Language::Json;
+  if (ext == ".glsl" || ext == ".vert" || ext == ".frag")
+    return AppState::Language::GLSL;
+  if (ext == ".lua") return AppState::Language::Lua;
+  return AppState::Language::None;
+}
 
 constexpr int kDefaultFontIndex = 3;
 constexpr int kFontMinSize = 14;
@@ -37,7 +59,6 @@ bool NotepadApp::Init() {
 
   AppSettings settings;
   if (SessionManager::LoadSettings(settings)) {
-    m_state.enableMarkdown = settings.enableMarkdown;
     m_state.isDarkTheme = settings.isDarkTheme;
     m_state.currentFontIndex = settings.currentFontIndex;
   }
@@ -121,8 +142,9 @@ EditorTab* NotepadApp::GetActiveTab() {
 void NotepadApp::AddNewTab(const std::string& filePath) {
   auto tab = std::make_unique<EditorTab>();
   tab->currentFilePath = filePath;
+  tab->language = DetectLanguage(filePath);
   m_themeManager.ApplyTheme(m_state.isDarkTheme, tab->editor);
-  m_themeManager.ApplyMarkdownMode(m_state.enableMarkdown, tab->editor);
+  m_themeManager.ApplyLanguage(tab->language, tab->editor);
   m_tabs.push_back(std::move(tab));
   m_state.forceSelectTab = (int)m_tabs.size() - 1;
   m_activeTabIndex = (int)m_tabs.size() - 1;
@@ -270,8 +292,9 @@ int NotepadApp::Run() {
       m_state.currentFontIndex = (int)m_editorFonts.size() - 1;
 
     if (GetActiveTab())
-      m_menuBar.Render(m_state, GetActiveTab()->editor, m_themeManager,
-                       m_findPanel, m_windowCtx, m_menuFont);
+      m_menuBar.Render(m_state, GetActiveTab()->language,
+                       GetActiveTab()->editor, m_themeManager, m_findPanel,
+                       m_windowCtx, m_menuFont);
 
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -427,7 +450,6 @@ int NotepadApp::Run() {
   }
 
   AppSettings settings;
-  settings.enableMarkdown = m_state.enableMarkdown;
   settings.isDarkTheme = m_state.isDarkTheme;
   settings.currentFontIndex = m_state.currentFontIndex;
   SessionManager::SaveSettings(settings);

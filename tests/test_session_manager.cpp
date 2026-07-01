@@ -5,22 +5,18 @@
 
 TEST_CASE("SessionManager Settings Save and Load", "[SessionManager]") {
   AppSettings originalSettings;
-  originalSettings.enableMarkdown = false;
   originalSettings.isDarkTheme = false;
   originalSettings.currentFontIndex = 5;
 
   SessionManager::SaveSettings(originalSettings);
 
   AppSettings loadedSettings;
-  // Set some defaults to make sure they get overwritten
-  loadedSettings.enableMarkdown = true;
   loadedSettings.isDarkTheme = true;
   loadedSettings.currentFontIndex = 0;
 
   bool success = SessionManager::LoadSettings(loadedSettings);
 
   REQUIRE(success == true);
-  REQUIRE(loadedSettings.enableMarkdown == originalSettings.enableMarkdown);
   REQUIRE(loadedSettings.isDarkTheme == originalSettings.isDarkTheme);
   REQUIRE(loadedSettings.currentFontIndex == originalSettings.currentFontIndex);
 }

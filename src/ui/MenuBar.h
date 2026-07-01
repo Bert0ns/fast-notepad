@@ -9,6 +9,7 @@
 
 class MenuBar {
  public:
-  void Render(AppState& state, TextEditor& editor, ThemeManager& themeManager,
+  void Render(AppState& state, AppState::Language& currentLanguage,
+              TextEditor& editor, ThemeManager& themeManager,
               FindPanel& findPanel, WindowContext& windowCtx, ImFont* menuFont);
 };

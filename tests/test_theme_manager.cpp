@@ -32,11 +32,11 @@ TEST_CASE("ThemeManager Initialization and Apply", "[ThemeManager]") {
   SECTION("Apply Markdown Mode") {
     // We can't easily extract the exact definition back without getters,
     // but we can ensure it doesn't crash when applying.
-    themeManager.ApplyMarkdownMode(true, editor);
-    REQUIRE(true);  // If it gets here without crashing, we're good
+    themeManager.ApplyLanguage(AppState::Language::Markdown, editor);
+    REQUIRE(editor.GetLanguageDefinition().mName == "Markdown");
 
-    themeManager.ApplyMarkdownMode(false, editor);
-    REQUIRE(true);
+    themeManager.ApplyLanguage(AppState::Language::None, editor);
+    REQUIRE(editor.GetLanguageDefinition().mName == "Plain Text");
   }
 
   ImGui::DestroyContext();

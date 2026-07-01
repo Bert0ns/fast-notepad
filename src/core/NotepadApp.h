@@ -25,6 +25,7 @@ struct EditorTab {
   std::string pendingFilePath;
   bool isLoading = false;
   bool isSaving = false;
+  AppState::Language language = AppState::Language::None;
 };
 
 class NotepadApp {

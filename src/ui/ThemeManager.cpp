@@ -52,6 +52,27 @@ void ThemeManager::ApplyTheme(bool isDarkTheme, TextEditor& editor) {
   }
 }
 
-void ThemeManager::ApplyMarkdownMode(bool enableMarkdown, TextEditor& editor) {
-  editor.SetLanguageDefinition(enableMarkdown ? m_markdownDef : m_plainTextDef);
+void ThemeManager::ApplyLanguage(AppState::Language lang, TextEditor& editor) {
+  switch (lang) {
+    case AppState::Language::None:
+      editor.SetLanguageDefinition(m_plainTextDef);
+      break;
+    case AppState::Language::Markdown:
+      editor.SetLanguageDefinition(m_markdownDef);
+      break;
+    case AppState::Language::Cpp:
+      editor.SetLanguageDefinition(TextEditor::LanguageDefinition::CPlusPlus());
+      break;
+    case AppState::Language::Json:
+      // Note: ImGuiColorTextEdit does not have a built-in JSON parser, C++ is
+      // typically close enough But let's check if it has C!
+      editor.SetLanguageDefinition(TextEditor::LanguageDefinition::C());
+      break;
+    case AppState::Language::GLSL:
+      editor.SetLanguageDefinition(TextEditor::LanguageDefinition::GLSL());
+      break;
+    case AppState::Language::Lua:
+      editor.SetLanguageDefinition(TextEditor::LanguageDefinition::Lua());
+      break;
+  }
 }

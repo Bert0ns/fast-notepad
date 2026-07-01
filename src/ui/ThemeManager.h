@@ -1,13 +1,14 @@
 #pragma once
 #include <imgui.h>
 
+#include "AppState.h"
 #include "TextEditor.h"
 
 class ThemeManager {
  public:
   ThemeManager();
   void ApplyTheme(bool isDarkTheme, TextEditor& editor);
-  void ApplyMarkdownMode(bool enableMarkdown, TextEditor& editor);
+  void ApplyLanguage(AppState::Language lang, TextEditor& editor);
 
   ImVec4 GetClearColor() const { return m_clearColor; }
 

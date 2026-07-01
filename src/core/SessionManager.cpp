@@ -74,7 +74,6 @@ void SessionManager::SaveSettings(const AppSettings& settings) {
 
   std::ofstream file(path);
   if (file.is_open()) {
-    file << (settings.enableMarkdown ? "1" : "0") << '\n';
     file << (settings.isDarkTheme ? "1" : "0") << '\n';
     file << settings.currentFontIndex << '\n';
   }
@@ -86,7 +85,6 @@ bool SessionManager::LoadSettings(AppSettings& settings) {
   std::ifstream file(path);
   if (file.is_open()) {
     std::string line;
-    if (std::getline(file, line)) settings.enableMarkdown = (line == "1");
     if (std::getline(file, line)) settings.isDarkTheme = (line == "1");
     if (std::getline(file, line)) settings.currentFontIndex = std::stoi(line);
     return true;

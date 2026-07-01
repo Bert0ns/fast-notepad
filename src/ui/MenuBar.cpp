@@ -4,9 +4,10 @@ constexpr float kMenuBarPaddingX = 12.0f;
 constexpr float kMenuBarPaddingY = 12.0f;
 constexpr int kDefaultFontIndex = 3;
 
-void MenuBar::Render(AppState& state, TextEditor& editor,
-                     ThemeManager& themeManager, FindPanel& findPanel,
-                     WindowContext& windowCtx, ImFont* menuFont) {
+void MenuBar::Render(AppState& state, AppState::Language& currentLanguage,
+                     TextEditor& editor, ThemeManager& themeManager,
+                     FindPanel& findPanel, WindowContext& windowCtx,
+                     ImFont* menuFont) {
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
                       ImVec2(kMenuBarPaddingX, kMenuBarPaddingY));
   if (ImGui::BeginMainMenuBar()) {
@@ -41,10 +42,31 @@ void MenuBar::Render(AppState& state, TextEditor& editor,
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("View")) {
-      bool prevMarkdown = state.enableMarkdown;
-      ImGui::MenuItem("Markdown Highlighting", nullptr, &state.enableMarkdown);
-      if (state.enableMarkdown != prevMarkdown) {
-        themeManager.ApplyMarkdownMode(state.enableMarkdown, editor);
+      if (ImGui::BeginMenu("Language")) {
+        AppState::Language prevLanguage = currentLanguage;
+        if (ImGui::MenuItem("None", nullptr,
+                            currentLanguage == AppState::Language::None))
+          currentLanguage = AppState::Language::None;
+        if (ImGui::MenuItem("C++", nullptr,
+                            currentLanguage == AppState::Language::Cpp))
+          currentLanguage = AppState::Language::Cpp;
+        if (ImGui::MenuItem("GLSL", nullptr,
+                            currentLanguage == AppState::Language::GLSL))
+          currentLanguage = AppState::Language::GLSL;
+        if (ImGui::MenuItem("JSON", nullptr,
+                            currentLanguage == AppState::Language::Json))
+          currentLanguage = AppState::Language::Json;
+        if (ImGui::MenuItem("Lua", nullptr,
+                            currentLanguage == AppState::Language::Lua))
+          currentLanguage = AppState::Language::Lua;
+        if (ImGui::MenuItem("Markdown", nullptr,
+                            currentLanguage == AppState::Language::Markdown))
+          currentLanguage = AppState::Language::Markdown;
+
+        if (currentLanguage != prevLanguage) {
+          themeManager.ApplyLanguage(currentLanguage, editor);
+        }
+        ImGui::EndMenu();
       }
 
       ImGui::Separator();

@@ -36,8 +36,9 @@ TEST_CASE("MenuBar Render", "[MenuBar]") {
 
   // We just render it to make sure it doesn't crash.
   // But testing the internals of MenuBar rendering is hard without clicking.
-  REQUIRE_NOTHROW(menuBar.Render(state, editor, themeManager, findPanel,
-                                 windowCtx, nullptr));
+  AppState::Language currentLanguage = AppState::Language::None;
+  REQUIRE_NOTHROW(menuBar.Render(state, currentLanguage, editor, themeManager,
+                                 findPanel, windowCtx, nullptr));
 
   ImGui::EndFrame();
   ImGui::DestroyContext();

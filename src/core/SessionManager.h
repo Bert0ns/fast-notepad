@@ -3,7 +3,6 @@
 #include <vector>
 
 struct AppSettings {
-  bool enableMarkdown = true;
   bool isDarkTheme = true;
   int currentFontIndex = 3;
 };
