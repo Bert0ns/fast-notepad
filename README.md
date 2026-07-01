@@ -7,11 +7,11 @@ A compact, cross-platform text editor built with C++ and Dear ImGui. It focuses 
 Unix:
 
 ```bash
-mkdir build
+mkdir -p build
 cd build
 cmake ..
-make
-./FastNotepad
+cmake --build .
+echo "run the app with ./build/FastNotepad"
 ```
 
 If an error shows up talnking about X11, you are missing the X11 + OpenGL dev packages, install them:
@@ -40,6 +40,8 @@ Debug\FastNotepad.exe
 
 Other useful command to build the release version: `CMake: Select Variant`
 
+You can also run `./scripts/build-release.sh`
+
 ## Testing
 
 To run the automated tests locally using Catch2, you need to configure CMake with testing enabled and then use `ctest`:
@@ -51,6 +53,8 @@ cmake .. -DBUILD_TESTING=ON
 cmake --build . --target fast_notepad_tests
 ctest --output-on-failure
 ```
+
+You can also run `./scripts/run-tests.sh`
 
 ## Releases
 
@@ -66,25 +70,28 @@ Releases are completely automated via GitHub Actions. To trigger a new release:
 
 ## Features
 
-- Minimal top menu bar with File, Edit, and View menus
-- New, Open, Save, Save As, and Exit actions
-- Undo/Redo and clipboard actions (Cut/Copy/Paste)
-- Markdown syntax highlighting toggle (regex-based)
-- Light/Dark theme toggle
-- Zoom in/out/reset for editor font size
-- Native file dialogs via portable-file-dialogs
-- Window title updates to show the active file
+- **Multi-Tab Support:** Open, edit, and manage multiple files concurrently.
+- **Syntax Highlighting:** Automatically detects and highlights C++, JSON, GLSL, Lua, and Markdown files.
+- **Find & Replace:** Search for text and replace it iteratively or all at once.
+- **Unsaved Changes Protection:** Prevents accidental data loss by prompting you before closing dirty tabs or exiting.
+- **Session Persistence:** Remembers your open tabs and settings (theme, window size) across restarts.
+- **Light/Dark Themes:** Beautiful, high-contrast themes optimized for readability.
+- **Quick Zooming:** Scale editor font size easily using mouse wheel or keyboard shortcuts.
+- **Native File Dialogs:** Seamless OS integration using portable-file-dialogs.
 
 ## Keyboard shortcuts
 
-- Ctrl+O: Open
-- Ctrl+S: Save
-- Ctrl+Shift+S: Save As
-- Ctrl+Z / Ctrl+Y: Undo / Redo
-- Ctrl+X / Ctrl+C / Ctrl+V: Cut / Copy / Paste
-- Ctrl+F: Find
-- Ctrl+Mouse Wheel: Zoom
-- Ctrl++ / Ctrl+- / Ctrl+0: Zoom In / Zoom Out / Reset Zoom
+- **Ctrl+N:** New Tab
+- **Ctrl+O:** Open File
+- **Ctrl+S:** Save
+- **Ctrl+Shift+S:** Save As
+- **Ctrl+Z / Ctrl+Y:** Undo / Redo
+- **Ctrl+X / Ctrl+C / Ctrl+V:** Cut / Copy / Paste
+- **Ctrl+F:** Find
+- **Ctrl+H:** Find & Replace
+- **Esc:** Close Find & Replace panel
+- **Ctrl+Mouse Wheel:** Zoom In / Out
+- **Ctrl++ / Ctrl+- / Ctrl+0:** Zoom In / Zoom Out / Reset Zoom
 
 ## Technology stack
 
