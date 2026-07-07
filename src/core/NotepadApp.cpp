@@ -141,6 +141,8 @@ EditorTab* NotepadApp::GetActiveTab() {
 
 void NotepadApp::AddNewTab(const std::string& filePath) {
   auto tab = std::make_unique<EditorTab>();
+  static uint64_t s_nextTabId = 0;
+  tab->tabId = s_nextTabId++;
   tab->currentFilePath = filePath;
   tab->language = DetectLanguage(filePath);
   m_themeManager.ApplyTheme(m_state.isDarkTheme, tab->editor);
@@ -184,7 +186,7 @@ void NotepadApp::HandlePendingAction() {
       ExecuteCloseTab(m_pendingCloseTabIndex);
       break;
     case AppState::PendingAction::Exit:
-      ExecuteExit();
+      m_state.triggerExit = true;
       break;
     default:
       break;
@@ -221,7 +223,7 @@ void NotepadApp::RenderEditor() {
       size_t slash = title.find_last_of("/\\");
       if (slash != std::string::npos) title = title.substr(slash + 1);
       if (tab->isDirty) title += "*";
-      title += "###tab" + std::to_string(i);  // Unique ID
+      title += "###tab" + std::to_string(tab->tabId);  // Unique ID
 
       bool open = true;
       ImGuiTabItemFlags flags =
@@ -327,7 +329,7 @@ int NotepadApp::Run() {
           } else {
             m_state.showErrorPopup = true;
             m_state.errorMessage =
-                "Failed to load file: " + tab->pendingFilePath;
+                "Failed to load file: " + tab->currentFilePath;
           }
           tab->isLoading = false;
         }
