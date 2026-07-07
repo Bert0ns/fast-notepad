@@ -160,37 +160,31 @@ void FindPanel::Render(TextEditor& editor, ImGuiViewport* viewport) {
   if (!m_show) return;
 
   ImGui::SetNextWindowPos(
-      ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 340.0f,
+      ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 412.0f,
              viewport->WorkPos.y + 12.0f),
       ImGuiCond_Always);
-  ImGui::SetNextWindowSize(ImVec2(320.0f, 0.0f), ImGuiCond_Always);
+  ImGui::SetNextWindowSize(ImVec2(400.0f, 0.0f), ImGuiCond_Always);
   ImGuiWindowFlags findFlags = ImGuiWindowFlags_NoCollapse |
                                ImGuiWindowFlags_NoSavedSettings |
                                ImGuiWindowFlags_AlwaysAutoResize;
 
-  if (ImGui::Begin("Find", &m_show, findFlags)) {
+  if (ImGui::Begin("Find & Replace", &m_show, findFlags)) {
     if (m_focusInput) {
       ImGui::SetKeyboardFocusHere();
       m_focusInput = false;
     }
 
     ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Find:   ");
+    ImGui::SameLine();
+
+    ImGui::SetNextItemWidth(200.0f);
     bool submit = ImGui::InputText("##FindInput", m_findBuffer.data(),
                                    m_findBuffer.size(), inputFlags);
     ImGui::SameLine();
     if (ImGui::Button("Find Next")) submit = true;
-
-    ImGui::SameLine();
-    ImGui::Checkbox("Wrap", &m_wrapSearch);
-    ImGui::SameLine();
-    ImGui::Checkbox("Replace Mode", &m_showReplace);
-
-    if (submit) {
-      std::string query(m_findBuffer.data());
-      m_findFailed = !FindNextMatch(editor, query, m_wrapSearch, m_findWrapped);
-      m_replaceCount = -1;
-      if (!m_findFailed) m_show = true;
-    }
 
     if (m_showReplace) {
       if (m_focusReplace) {
@@ -198,13 +192,19 @@ void FindPanel::Render(TextEditor& editor, ImGuiViewport* viewport) {
         m_focusReplace = false;
       }
       ImGuiInputTextFlags repFlags = ImGuiInputTextFlags_EnterReturnsTrue;
+
+      ImGui::AlignTextToFramePadding();
+      ImGui::Text("Replace:");
+      ImGui::SameLine();
+
+      ImGui::SetNextItemWidth(200.0f);
       bool repSubmit =
           ImGui::InputText("##ReplaceInput", m_replaceBuffer.data(),
                            m_replaceBuffer.size(), repFlags);
       ImGui::SameLine();
       if (ImGui::Button("Replace")) repSubmit = true;
       ImGui::SameLine();
-      if (ImGui::Button("Replace All")) {
+      if (ImGui::Button("All")) {
         ReplaceAll(editor);
       }
 
@@ -213,12 +213,24 @@ void FindPanel::Render(TextEditor& editor, ImGuiViewport* viewport) {
       }
     }
 
+    ImGui::Separator();
+    ImGui::Checkbox("Wrap search", &m_wrapSearch);
+    ImGui::SameLine();
+    ImGui::Checkbox("Enable Replace Mode", &m_showReplace);
+
+    if (submit) {
+      std::string query(m_findBuffer.data());
+      m_findFailed = !FindNextMatch(editor, query, m_wrapSearch, m_findWrapped);
+      m_replaceCount = -1;
+      if (!m_findFailed) m_show = true;
+    }
+
     if (m_replaceCount >= 0) {
       ImGui::Text("%d occurrence(s) replaced.", m_replaceCount);
     } else if (m_findFailed) {
-      ImGui::TextUnformatted("No matches found.");
+      ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "No matches found.");
     } else if (m_findWrapped) {
-      ImGui::TextUnformatted("Wrapped to start.");
+      ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "Wrapped to start.");
     }
   }
   ImGui::End();
