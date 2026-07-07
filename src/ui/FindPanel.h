@@ -29,9 +29,14 @@ class FindPanel {
   bool m_focusInput = false;
   bool m_focusReplace = false;
   bool m_wrapSearch = true;
+  bool m_matchCase = false;
+  bool m_wholeWord = false;
   bool m_findFailed = false;
   bool m_findWrapped = false;
   int m_replaceCount = -1;
+
+  size_t FindInString(const std::string& text, const std::string& query,
+                      size_t from);
   std::array<char, 256> m_findBuffer = {0};
   std::array<char, 256> m_replaceBuffer = {0};
 };

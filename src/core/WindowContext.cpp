@@ -1,8 +1,10 @@
 #include "WindowContext.h"
+
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+
 #include "Platform.h"
 
 WindowContext::WindowContext() = default;
@@ -44,13 +46,9 @@ bool WindowContext::Init(int width, int height, const char* title) {
   return true;
 }
 
-void WindowContext::PollEvents() {
-  glfwPollEvents();
-}
+void WindowContext::PollEvents() { glfwWaitEventsTimeout(0.016); }
 
-void WindowContext::SwapBuffers() {
-  glfwSwapBuffers(m_window);
-}
+void WindowContext::SwapBuffers() { glfwSwapBuffers(m_window); }
 
 bool WindowContext::ShouldClose() const {
   return glfwWindowShouldClose(m_window);

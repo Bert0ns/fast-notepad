@@ -1,5 +1,8 @@
 #include "FindPanel.h"
 
+#include <algorithm>
+#include <cctype>
+
 #include "Utf8Utils.h"
 
 void FindPanel::Open(TextEditor& editor, bool replaceMode) {
@@ -63,6 +66,55 @@ int FindPanel::ColumnToByteIndex(const std::string& line, int column,
   return i;
 }
 
+static bool IsWordBoundary(char c) {
+  return !std::isalnum(static_cast<unsigned char>(c)) && c != '_';
+}
+
+size_t FindPanel::FindInString(const std::string& text,
+                               const std::string& query, size_t from) {
+  if (query.empty() || text.empty() || from >= text.size())
+    return std::string::npos;
+
+  auto search_it =
+      std::search(text.begin() + from, text.end(), query.begin(), query.end(),
+                  [this](char ch1, char ch2) {
+                    if (!m_matchCase) {
+                      return std::tolower(static_cast<unsigned char>(ch1)) ==
+                             std::tolower(static_cast<unsigned char>(ch2));
+                    }
+                    return ch1 == ch2;
+                  });
+
+  while (search_it != text.end()) {
+    size_t pos = std::distance(text.begin(), search_it);
+
+    bool match = true;
+    if (m_wholeWord) {
+      if (pos > 0 && !IsWordBoundary(text[pos - 1])) {
+        match = false;
+      }
+      if (match && pos + query.size() < text.size() &&
+          !IsWordBoundary(text[pos + query.size()])) {
+        match = false;
+      }
+    }
+
+    if (match) return pos;
+
+    search_it =
+        std::search(search_it + 1, text.end(), query.begin(), query.end(),
+                    [this](char ch1, char ch2) {
+                      if (!m_matchCase) {
+                        return std::tolower(static_cast<unsigned char>(ch1)) ==
+                               std::tolower(static_cast<unsigned char>(ch2));
+                      }
+                      return ch1 == ch2;
+                    });
+  }
+
+  return std::string::npos;
+}
+
 bool FindPanel::FindNextMatch(TextEditor& editor, const std::string& query,
                               bool wrap, bool& wrapped) {
   wrapped = false;
@@ -80,7 +132,7 @@ bool FindPanel::FindNextMatch(TextEditor& editor, const std::string& query,
     const auto& text = lines[line];
     const size_t from =
         (line == startLine) ? static_cast<size_t>(startByte) : 0u;
-    const size_t pos = text.find(query, from);
+    const size_t pos = FindInString(text, query, from);
     if (pos != std::string::npos) {
       int startCol =
           ByteIndexToColumn(text, static_cast<int>(pos), editor.GetTabSize());
@@ -98,7 +150,7 @@ bool FindPanel::FindNextMatch(TextEditor& editor, const std::string& query,
     const auto& text = lines[line];
     const size_t limit =
         (line == startLine) ? static_cast<size_t>(startByte) : text.size();
-    size_t pos = text.find(query, 0u);
+    size_t pos = FindInString(text, query, 0u);
     if (pos != std::string::npos && pos < limit) {
       int startCol =
           ByteIndexToColumn(text, static_cast<int>(pos), editor.GetTabSize());
@@ -118,9 +170,28 @@ void FindPanel::ReplaceNext(TextEditor& editor) {
   if (query.empty()) return;
   std::string replaceWith(m_replaceBuffer.data());
 
-  if (editor.HasSelection() && editor.GetSelectedText() == query) {
-    editor.Delete();
-    editor.InsertText(replaceWith);
+  if (editor.HasSelection()) {
+    std::string selected = editor.GetSelectedText();
+    bool match = false;
+    if (m_matchCase) {
+      match = (selected == query);
+    } else {
+      if (selected.size() == query.size()) {
+        match = true;
+        for (size_t i = 0; i < selected.size(); ++i) {
+          if (std::tolower(static_cast<unsigned char>(selected[i])) !=
+              std::tolower(static_cast<unsigned char>(query[i]))) {
+            match = false;
+            break;
+          }
+        }
+      }
+    }
+
+    if (match) {
+      editor.Delete();
+      editor.InsertText(replaceWith);
+    }
   }
 
   m_findFailed = !FindNextMatch(editor, query, m_wrapSearch, m_findWrapped);
@@ -141,7 +212,7 @@ void FindPanel::ReplaceAll(TextEditor& editor) {
 
   size_t pos = 0;
   int count = 0;
-  while ((pos = fullText.find(query, pos)) != std::string::npos) {
+  while ((pos = FindInString(fullText, query, pos)) != std::string::npos) {
     fullText.replace(pos, query.length(), replaceWith);
     pos += replaceWith.length();
     count++;
@@ -214,6 +285,10 @@ void FindPanel::Render(TextEditor& editor, ImGuiViewport* viewport) {
     }
 
     ImGui::Separator();
+    ImGui::Checkbox("Match case", &m_matchCase);
+    ImGui::SameLine();
+    ImGui::Checkbox("Whole word", &m_wholeWord);
+
     ImGui::Checkbox("Wrap search", &m_wrapSearch);
     ImGui::SameLine();
     ImGui::Checkbox("Enable Replace Mode", &m_showReplace);

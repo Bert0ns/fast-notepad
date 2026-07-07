@@ -86,6 +86,42 @@ TEST_CASE("FindPanel Logic", "[FindPanel]") {
     REQUIRE(editor.GetCursorPosition().mColumn == 7);
   }
 
+  SECTION("FindNextMatch with match case") {
+    editor.SetText("One two ONE one TWO");
+    bool wrapped = false;
+
+    panel.m_matchCase = true;
+    editor.SetCursorPosition({0, 0});
+    bool found = panel.FindNextMatch(editor, "ONE", false, wrapped);
+    REQUIRE(found == true);
+    REQUIRE(editor.GetCursorPosition().mLine == 0);
+    REQUIRE(editor.GetCursorPosition().mColumn == 11);
+
+    panel.m_matchCase = false;
+    editor.SetCursorPosition({0, 0});
+    found = panel.FindNextMatch(editor, "ONE", false, wrapped);
+    REQUIRE(found == true);
+    REQUIRE(editor.GetCursorPosition().mLine == 0);
+    REQUIRE(editor.GetCursorPosition().mColumn == 3);
+  }
+
+  SECTION("FindNextMatch with whole word") {
+    editor.SetText("one ones one");
+    bool wrapped = false;
+
+    panel.m_wholeWord = true;
+    editor.SetCursorPosition({0, 0});
+    bool found = panel.FindNextMatch(editor, "one", false, wrapped);
+    REQUIRE(found == true);
+    REQUIRE(editor.GetCursorPosition().mLine == 0);
+    REQUIRE(editor.GetCursorPosition().mColumn == 3);
+
+    found = panel.FindNextMatch(editor, "one", false, wrapped);
+    REQUIRE(found == true);
+    REQUIRE(editor.GetCursorPosition().mLine == 0);
+    REQUIRE(editor.GetCursorPosition().mColumn == 12);
+  }
+
   SECTION("ReplaceNext") {
     editor.SetText("one two two three");
     std::string query = "two";
