@@ -29,6 +29,34 @@ FetchContent_MakeAvailable(textedit)
 file(READ "${textedit_SOURCE_DIR}/TextEditor.cpp" TEXT_EDITOR_CPP)
 string(REPLACE "ImGui::PushItemFlag(ImGuiItemFlags_NoTabStop, false);" "/* patched no tab stop */" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
 string(REPLACE "ImGui::PopItemFlag();" "/* patched pop item flag */" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
+
+set(SCROLL_ORIG "	if (pos.mLine < top)
+		ImGui::SetScrollY(std::max(0.0f, (pos.mLine - 1) * mCharAdvance.y));
+	if (pos.mLine > bottom - 4)
+		ImGui::SetScrollY(std::max(0.0f, (pos.mLine + 4) * mCharAdvance.y - height));
+	if (len + mTextStart < left + 4)
+		ImGui::SetScrollX(std::max(0.0f, len + mTextStart - 4));
+	if (len + mTextStart > right - 4)
+		ImGui::SetScrollX(std::max(0.0f, len + mTextStart + 4 - width));")
+
+set(SCROLL_NEW "	float padY = std::min(2.0f * mCharAdvance.y, height * 0.25f);
+	float padX = std::min(4.0f * mCharAdvance.x, width * 0.25f);
+	
+	float cursorPosY = pos.mLine * mCharAdvance.y;
+	float cursorPosX = len + mTextStart;
+	
+	if (cursorPosY < scrollY + padY)
+		ImGui::SetScrollY(std::max(0.0f, cursorPosY - padY));
+	if (cursorPosY + mCharAdvance.y > scrollY + height - padY)
+		ImGui::SetScrollY(std::max(0.0f, cursorPosY + mCharAdvance.y - height + padY));
+		
+	if (cursorPosX < scrollX + padX)
+		ImGui::SetScrollX(std::max(0.0f, cursorPosX - padX));
+	if (cursorPosX > scrollX + width - padX)
+		ImGui::SetScrollX(std::max(0.0f, cursorPosX - width + padX));")
+
+string(REPLACE "${SCROLL_ORIG}" "${SCROLL_NEW}" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
+
 file(WRITE "${textedit_SOURCE_DIR}/TextEditor.cpp" "${TEXT_EDITOR_CPP}")
 
 # 4. Fetch Portable File Dialogs
