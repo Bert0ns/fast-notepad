@@ -39,16 +39,15 @@ set(SCROLL_ORIG "	if (pos.mLine < top)
 	if (len + mTextStart > right - 4)
 		ImGui::SetScrollX(std::max(0.0f, len + mTextStart + 4 - width));")
 
-set(SCROLL_NEW "	float padY = std::min(2.0f * mCharAdvance.y, height * 0.25f);
-	float padX = std::min(4.0f * mCharAdvance.x, width * 0.25f);
+set(SCROLL_NEW "	float padX = std::min(4.0f * mCharAdvance.x, width * 0.25f);
 	
 	float cursorPosY = pos.mLine * mCharAdvance.y;
 	float cursorPosX = len + mTextStart;
 	
-	if (cursorPosY < scrollY + padY)
-		ImGui::SetScrollY(std::max(0.0f, cursorPosY - padY));
-	if (cursorPosY + mCharAdvance.y > scrollY + height - padY)
-		ImGui::SetScrollY(std::max(0.0f, cursorPosY + mCharAdvance.y - height + padY));
+	if (cursorPosY < scrollY)
+		ImGui::SetScrollY(std::max(0.0f, cursorPosY));
+	if (cursorPosY + mCharAdvance.y > scrollY + height)
+		ImGui::SetScrollY(std::max(0.0f, cursorPosY + mCharAdvance.y - height));
 		
 	if (cursorPosX < scrollX + padX)
 		ImGui::SetScrollX(std::max(0.0f, cursorPosX - padX));
@@ -56,6 +55,8 @@ set(SCROLL_NEW "	float padY = std::min(2.0f * mCharAdvance.y, height * 0.25f);
 		ImGui::SetScrollX(std::max(0.0f, cursorPosX - width + padX));")
 
 string(REPLACE "${SCROLL_ORIG}" "${SCROLL_NEW}" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
+
+string(REPLACE "ImGui::Dummy(ImVec2((longest + 2), mLines.size() * mCharAdvance.y));" "ImGui::Dummy(ImVec2((longest + 2 + 4.0f * mCharAdvance.x), mLines.size() * mCharAdvance.y));" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
 
 file(WRITE "${textedit_SOURCE_DIR}/TextEditor.cpp" "${TEXT_EDITOR_CPP}")
 
