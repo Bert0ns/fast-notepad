@@ -136,16 +136,16 @@ TEST_CASE("FindPanel Logic", "[FindPanel]") {
     // First ReplaceNext should just find it, because no selection matches yet
     panel.ReplaceNext(editor);
     REQUIRE(editor.GetSelectedText() == "two");
-    REQUIRE(editor.GetText() == "one two two three\n");
+    REQUIRE(editor.GetText() == "one two two three");
 
     // Second ReplaceNext should replace and find next
     panel.ReplaceNext(editor);
     REQUIRE(editor.GetSelectedText() == "two");  // Found the second one
-    REQUIRE(editor.GetText() == "one four two three\n");
+    REQUIRE(editor.GetText() == "one four two three");
 
     // Third should replace the second one, and find no more
     panel.ReplaceNext(editor);
-    REQUIRE(editor.GetText() == "one four four three\n");
+    REQUIRE(editor.GetText() == "one four four three");
     REQUIRE(panel.m_findFailed == true);
   }
 
@@ -160,7 +160,7 @@ TEST_CASE("FindPanel Logic", "[FindPanel]") {
 
     panel.ReplaceAll(editor);
     REQUIRE(panel.m_replaceCount == 3);
-    REQUIRE(editor.GetText() == "x b x c x d\n");
+    REQUIRE(editor.GetText() == "x b x c x d");
   }
 
   SECTION("Render Panel") {

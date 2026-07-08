@@ -15,8 +15,14 @@ class ThemeManager {
  private:
   void ApplyNoCommentParsing(TextEditor::LanguageDefinition& lang);
   TextEditor::LanguageDefinition GetMarkdownDefinition();
+  TextEditor::LanguageDefinition GetHtmlDefinition();
+  TextEditor::LanguageDefinition GetCssDefinition();
+  TextEditor::LanguageDefinition GetJsDefinition();
 
   TextEditor::LanguageDefinition m_markdownDef;
+  TextEditor::LanguageDefinition m_htmlDef;
+  TextEditor::LanguageDefinition m_cssDef;
+  TextEditor::LanguageDefinition m_jsDef;
   TextEditor::LanguageDefinition m_plainTextDef;
   ImVec4 m_clearColor;
 };

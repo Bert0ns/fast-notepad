@@ -53,6 +53,9 @@ void MenuBar::Render(AppState& state, AppState::Language& currentLanguage,
         if (ImGui::MenuItem("GLSL", nullptr,
                             currentLanguage == AppState::Language::GLSL))
           currentLanguage = AppState::Language::GLSL;
+        if (ImGui::MenuItem("HTML", nullptr,
+                            currentLanguage == AppState::Language::Html))
+          currentLanguage = AppState::Language::Html;
         if (ImGui::MenuItem("JSON", nullptr,
                             currentLanguage == AppState::Language::Json))
           currentLanguage = AppState::Language::Json;

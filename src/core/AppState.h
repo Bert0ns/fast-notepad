@@ -13,7 +13,7 @@ struct AppState {
   PendingAction pendingAction = PendingAction::None;
   bool showUnsavedChangesModal = false;
 
-  enum class Language { None, Markdown, Cpp, Json, GLSL, Lua };
+  enum class Language { None, Markdown, Cpp, Json, GLSL, Lua, Html };
   bool isDarkTheme = true;
   bool focusEditorOnStart = true;
   bool showErrorPopup = false;

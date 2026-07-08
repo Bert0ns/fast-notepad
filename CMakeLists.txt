@@ -23,42 +23,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(imgui)
 
 # 3. Fetch ImGuiColorTextEdit
-FetchContent_Declare(textedit GIT_REPOSITORY https://github.com/BalazsJako/ImGuiColorTextEdit.git GIT_TAG ca2f9f1462e3b60e56351bc466acda448c5ea50d)
+FetchContent_Declare(
+    textedit
+    GIT_REPOSITORY https://github.com/Bert0ns/ImGuiColorTextEdit.git
+    GIT_TAG        bert0ns/html-support
+)
 FetchContent_MakeAvailable(textedit)
-# Patch TextEditor.cpp for ImGui 1.90+ compatibility
-file(READ "${textedit_SOURCE_DIR}/TextEditor.cpp" TEXT_EDITOR_CPP)
-string(REPLACE "ImGui::PushItemFlag(ImGuiItemFlags_NoTabStop, false);" "/* patched no tab stop */" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
-string(REPLACE "ImGui::PopItemFlag();" "/* patched pop item flag */" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
-
-set(SCROLL_ORIG "	if (pos.mLine < top)
-		ImGui::SetScrollY(std::max(0.0f, (pos.mLine - 1) * mCharAdvance.y));
-	if (pos.mLine > bottom - 4)
-		ImGui::SetScrollY(std::max(0.0f, (pos.mLine + 4) * mCharAdvance.y - height));
-	if (len + mTextStart < left + 4)
-		ImGui::SetScrollX(std::max(0.0f, len + mTextStart - 4));
-	if (len + mTextStart > right - 4)
-		ImGui::SetScrollX(std::max(0.0f, len + mTextStart + 4 - width));")
-
-set(SCROLL_NEW "	float padX = std::min(4.0f * mCharAdvance.x, width * 0.25f);
-	
-	float cursorPosY = pos.mLine * mCharAdvance.y;
-	float cursorPosX = len + mTextStart;
-	
-	if (cursorPosY < scrollY)
-		ImGui::SetScrollY(std::max(0.0f, cursorPosY));
-	if (cursorPosY + mCharAdvance.y > scrollY + height)
-		ImGui::SetScrollY(std::max(0.0f, cursorPosY + mCharAdvance.y - height));
-		
-	if (cursorPosX < scrollX + padX)
-		ImGui::SetScrollX(std::max(0.0f, cursorPosX - padX));
-	if (cursorPosX > scrollX + width - padX)
-		ImGui::SetScrollX(std::max(0.0f, cursorPosX - width + padX));")
-
-string(REPLACE "${SCROLL_ORIG}" "${SCROLL_NEW}" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
-
-string(REPLACE "ImGui::Dummy(ImVec2((longest + 2), mLines.size() * mCharAdvance.y));" "ImGui::Dummy(ImVec2((longest + 2 + 4.0f * mCharAdvance.x), mLines.size() * mCharAdvance.y));" TEXT_EDITOR_CPP "${TEXT_EDITOR_CPP}")
-
-file(WRITE "${textedit_SOURCE_DIR}/TextEditor.cpp" "${TEXT_EDITOR_CPP}")
 
 # 4. Fetch Portable File Dialogs
 FetchContent_Declare(pfd GIT_REPOSITORY https://github.com/samhocevar/portable-file-dialogs.git GIT_TAG c12ea8c9a727f5320a2b4570aee863bbede2a204)

@@ -31,6 +31,7 @@ static AppState::Language DetectLanguage(const std::string& filePath) {
   if (ext == ".glsl" || ext == ".vert" || ext == ".frag")
     return AppState::Language::GLSL;
   if (ext == ".lua") return AppState::Language::Lua;
+  if (ext == ".html" || ext == ".htm") return AppState::Language::Html;
   return AppState::Language::None;
 }
 
