@@ -148,6 +148,7 @@ void NotepadApp::AddNewTab(const std::string& filePath) {
   tab->language = DetectLanguage(filePath);
   m_themeManager.ApplyTheme(m_state.isDarkTheme, tab->editor);
   m_themeManager.ApplyLanguage(tab->language, tab->editor);
+  tab->needsFocus = true;
   m_tabs.push_back(std::move(tab));
   m_state.forceSelectTab = (int)m_tabs.size() - 1;
   m_activeTabIndex = (int)m_tabs.size() - 1;
@@ -203,11 +204,6 @@ void NotepadApp::RenderEditor() {
       ImGuiWindowFlags_NoBringToFrontOnFocus;
   ImGui::Begin("MainWorkspace", nullptr, windowFlags);
 
-  if (m_state.focusEditorOnStart) {
-    ImGui::SetKeyboardFocusHere();
-    m_state.focusEditorOnStart = false;
-  }
-
   if (m_state.currentFontIndex >= 0 &&
       m_state.currentFontIndex < (int)m_editorFonts.size() &&
       m_editorFonts[m_state.currentFontIndex]) {
@@ -234,7 +230,14 @@ void NotepadApp::RenderEditor() {
           m_state.forceSelectTab = -1;  // reset after forcing
         }
         m_activeTabIndex = i;
-        tab->editor.Render("TextEditor");
+        std::string editorId = "TextEditor_" + std::to_string(tab->tabId);
+        if (tab->needsFocus) {
+          // Hack to force mScrollToCursor = true inside TextEditor
+          tab->editor.SetCursorPosition(TextEditor::Coordinates(0, 1));
+          tab->editor.SetCursorPosition(TextEditor::Coordinates(0, 0));
+          tab->needsFocus = false;
+        }
+        tab->editor.Render(editorId.c_str());
         ImGui::EndTabItem();
       }
 

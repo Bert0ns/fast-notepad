@@ -19,6 +19,7 @@ struct EditorTab {
   std::string currentFilePath;
   std::string lastFilePath = "UNINITIALIZED";
   bool isDirty = false;
+  bool needsFocus = false;
   uint64_t tabId = 0;
 
   std::future<std::optional<std::string>> loadFuture;

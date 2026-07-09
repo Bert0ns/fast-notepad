@@ -15,7 +15,6 @@ struct AppState {
 
   enum class Language { None, Markdown, Cpp, Json, GLSL, Lua, Html };
   bool isDarkTheme = true;
-  bool focusEditorOnStart = true;
   bool showErrorPopup = false;
   std::string errorMessage = "";
 
