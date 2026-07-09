@@ -4,7 +4,7 @@ mkdir -p build-tests
 cd build-tests || exit
 
 cmake .. -DBUILD_TESTING=ON -DENABLE_COVERAGE=ON
-cmake --build . --target fast_notepad_tests
+cmake --build . --parallel --target fast_notepad_tests
 ctest --output-on-failure
 
 echo "Generating coverage report..."

@@ -2,6 +2,6 @@
 
 mkdir -p build
 cd build || exit
-cmake ..
-cmake --build . --config Release
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release --parallel
 echo "run the app with ./build/FastNotepad"
