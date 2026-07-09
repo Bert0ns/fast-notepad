@@ -241,6 +241,7 @@ void NotepadApp::RenderEditor() {
       if (!open) {
         // Tab closed button clicked
         if (tab->isDirty) {
+          m_state.forceSelectTab = i;
           m_state.pendingAction = AppState::PendingAction::CloseTab;
           m_pendingCloseTabIndex = i;
           m_state.showUnsavedChangesModal = true;
@@ -275,7 +276,8 @@ void NotepadApp::UpdateWindowTitle() {
 }
 
 int NotepadApp::Run() {
-  while (!m_windowCtx.ShouldClose() || m_state.triggerExit) {
+  bool running = true;
+  while (running) {
     if (m_windowCtx.ShouldClose()) {
       m_windowCtx.SetShouldClose(false);
       m_state.triggerExit = true;
@@ -377,7 +379,7 @@ int NotepadApp::Run() {
           }
         }
         if (!hasDirty) {
-          ExecuteExit();
+          running = false;
         }
         m_state.triggerExit = false;
       }
