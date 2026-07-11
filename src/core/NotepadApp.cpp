@@ -51,7 +51,7 @@ NotepadApp::NotepadApp() : m_fileHandler(&m_nativeDialogs) {}
 
 NotepadApp::~NotepadApp() {}
 
-bool NotepadApp::Init() {
+bool NotepadApp::Init(int argc, char** argv) {
   if (!m_windowCtx.Init(kWindowWidth, kWindowHeight, kWindowTitle)) {
     return false;
   }
@@ -64,8 +64,18 @@ bool NotepadApp::Init() {
     m_state.currentFontIndex = settings.currentFontIndex;
   }
 
+  std::vector<std::string> cliFiles;
+  if (argc > 1 && argv != nullptr) {
+    for (int i = 1; i < argc; ++i) {
+      cliFiles.push_back(argv[i]);
+    }
+  }
+
   std::vector<SessionTab> sessionTabs;
-  if (SessionManager::LoadSessionState(sessionTabs) && !sessionTabs.empty()) {
+  bool loadedSession =
+      SessionManager::LoadSessionState(sessionTabs) && !sessionTabs.empty();
+
+  if (loadedSession) {
     for (const auto& st : sessionTabs) {
       AddNewTab(st.filePath);
       auto tab = m_tabs.back().get();
@@ -78,10 +88,32 @@ bool NotepadApp::Init() {
       }
     }
     m_activeTabIndex = 0;
-  } else {
+  }
+
+  if (!cliFiles.empty()) {
+    for (const auto& file : cliFiles) {
+      bool found = false;
+      for (size_t i = 0; i < m_tabs.size(); ++i) {
+        if (m_tabs[i]->currentFilePath == file) {
+          m_activeTabIndex = i;
+          m_state.forceSelectTab = i;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        AddNewTab(file);
+        auto tab = m_tabs.back().get();
+        tab->isLoading = true;
+        tab->loadFuture = m_fileHandler.LoadFileAsync(file);
+        m_activeTabIndex = m_tabs.size() - 1;
+      }
+    }
+  } else if (!loadedSession) {
     AddNewTab();
     m_tabs[0]->editor.SetText("Start *typing* or open a file...");
     SelectAllText();
+    m_activeTabIndex = 0;
   }
 
   return true;

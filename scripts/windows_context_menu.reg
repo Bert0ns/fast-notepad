@@ -1,0 +1,9 @@
+Windows Registry Editor Version 5.00
+
+; Register "FastNotepad" for all files in the system
+[HKEY_CLASSES_ROOT\*\shell\FastNotepad]
+@="Open with FastNotepad"
+"Icon"="\"C:\\Program Files\\FastNotepad\\FastNotepad.exe\""
+
+[HKEY_CLASSES_ROOT\*\shell\FastNotepad\command]
+@="\"C:\\Program Files\\FastNotepad\\FastNotepad.exe\" \"%1\""

@@ -1,8 +1,8 @@
 #include "NotepadApp.h"
 
-int main() {
+int main(int argc, char** argv) {
   NotepadApp app;
-  if (!app.Init()) {
+  if (!app.Init(argc, argv)) {
     return -1;
   }
   return app.Run();

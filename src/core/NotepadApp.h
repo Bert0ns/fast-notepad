@@ -35,7 +35,7 @@ class NotepadApp {
   NotepadApp();
   ~NotepadApp();
 
-  bool Init();
+  bool Init(int argc = 0, char** argv = nullptr);
   int Run();
 
  private:
