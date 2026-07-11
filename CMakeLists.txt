@@ -121,6 +121,7 @@ add_executable(fast_notepad_tests
     tests/test_find_panel.cpp
     tests/test_shortcut_manager.cpp
     tests/test_menu_bar.cpp
+    tests/test_window_context.cpp
     src/core/SessionManager.cpp
     src/io/FileHandler.cpp
     src/ui/ThemeManager.cpp

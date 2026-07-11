@@ -422,23 +422,20 @@ int NotepadApp::Run() {
       ImGui::Text("You have unsaved changes. Would you like to save them?");
       ImGui::Separator();
 
+      if (ImGui::IsWindowAppearing()) {
+        ImGui::SetKeyboardFocusHere(0);
+      }
       if (ImGui::Button("Save", ImVec2(120, 0))) {
         m_state.triggerSave = true;
         ImGui::CloseCurrentPopup();
       }
-      ImGui::SetItemDefaultFocus();  // "Save" or "Don't Save"? Plan says "Don't
-                                     // Save" comes as pre-selected
+      ImGui::SetItemDefaultFocus();
       ImGui::SameLine();
 
-      // Wait, Plan says: "Don't Save: Discard changes and proceed with the
-      // intercepted action. comes as pre-selected"
       if (ImGui::Button("Don't Save", ImVec2(120, 0))) {
         GetActiveTab()->isDirty = false;
         HandlePendingAction();
         ImGui::CloseCurrentPopup();
-      }
-      if (ImGui::IsItemFocused() == false && ImGui::IsWindowAppearing()) {
-        ImGui::SetKeyboardFocusHere(-1);  // Make "Don't Save" pre-selected
       }
 
       ImGui::SameLine();
