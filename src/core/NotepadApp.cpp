@@ -64,13 +64,18 @@ bool NotepadApp::Init() {
     m_state.currentFontIndex = settings.currentFontIndex;
   }
 
-  std::vector<std::string> filePaths;
-  if (SessionManager::LoadSessionState(filePaths) && !filePaths.empty()) {
-    for (const auto& fp : filePaths) {
-      AddNewTab(fp);
+  std::vector<SessionTab> sessionTabs;
+  if (SessionManager::LoadSessionState(sessionTabs) && !sessionTabs.empty()) {
+    for (const auto& st : sessionTabs) {
+      AddNewTab(st.filePath);
       auto tab = m_tabs.back().get();
-      tab->isLoading = true;
-      tab->loadFuture = m_fileHandler.LoadFileAsync(fp);
+      if (st.isDirty) {
+        tab->editor.SetText(st.content);
+        tab->isDirty = true;
+      } else if (!st.filePath.empty()) {
+        tab->isLoading = true;
+        tab->loadFuture = m_fileHandler.LoadFileAsync(st.filePath);
+      }
     }
     m_activeTabIndex = 0;
   } else {
@@ -370,20 +375,7 @@ int NotepadApp::Run() {
         m_state.triggerOpen = false;
       }
       if (m_state.triggerExit) {
-        bool hasDirty = false;
-        for (int i = 0; i < (int)m_tabs.size(); ++i) {
-          if (m_tabs[i]->isDirty) {
-            m_state.forceSelectTab = i;
-            m_state.pendingAction = AppState::PendingAction::Exit;
-            m_pendingCloseTabIndex = i;
-            m_state.showUnsavedChangesModal = true;
-            hasDirty = true;
-            break;
-          }
-        }
-        if (!hasDirty) {
-          running = false;
-        }
+        running = false;
         m_state.triggerExit = false;
       }
       if (m_state.triggerSave) {
@@ -474,12 +466,17 @@ int NotepadApp::Run() {
   settings.currentFontIndex = m_state.currentFontIndex;
   SessionManager::SaveSettings(settings);
 
-  std::vector<std::string> filePaths;
+  std::vector<SessionTab> sessionTabs;
   for (auto& tab : m_tabs) {
-    if (!tab->currentFilePath.empty()) {
-      filePaths.push_back(tab->currentFilePath);
+    SessionTab st;
+    st.filePath = tab->currentFilePath;
+    st.isDirty = tab->isDirty;
+    if (tab->isDirty || tab->currentFilePath.empty()) {
+      st.content = tab->editor.GetText();
+      st.isDirty = true;  // force dirty if untitled so it restores text
     }
+    sessionTabs.push_back(st);
   }
-  SessionManager::SaveSessionState(filePaths);
+  SessionManager::SaveSessionState(sessionTabs);
   return 0;
 }

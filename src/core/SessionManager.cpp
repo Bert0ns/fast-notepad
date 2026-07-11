@@ -36,37 +36,71 @@ std::filesystem::path GetConfigDirectory() {
 }
 }  // namespace
 
-void SessionManager::SaveSessionState(
-    const std::vector<std::string>& filePaths) {
-  auto path = GetConfigDirectory() / "session.txt";
+void SessionManager::SaveSessionState(const std::vector<SessionTab>& tabs) {
+  auto configDir = GetConfigDirectory();
+  auto path = configDir / "session.txt";
+
+  std::error_code ec;
+  for (auto& p : std::filesystem::directory_iterator(configDir, ec)) {
+    if (p.is_regular_file() &&
+        p.path().filename().string().find("backup_") == 0) {
+      std::filesystem::remove(p.path(), ec);
+    }
+  }
 
   std::ofstream file(path);
   if (file.is_open()) {
-    for (const auto& fp : filePaths) {
-      if (!fp.empty()) {
-        file << fp << '\n';
+    for (size_t i = 0; i < tabs.size(); ++i) {
+      const auto& tab = tabs[i];
+      file << tab.filePath << '\n';
+      file << (tab.isDirty ? "1" : "0") << '\n';
+      if (tab.isDirty) {
+        std::string backupName = "backup_" + std::to_string(i) + ".txt";
+        file << backupName << '\n';
+        std::ofstream backupFile(configDir / backupName, std::ios::binary);
+        if (backupFile.is_open()) {
+          backupFile.write(tab.content.c_str(), tab.content.size());
+        }
+      } else {
+        file << '\n';
       }
     }
   }
 }
 
-bool SessionManager::LoadSessionState(std::vector<std::string>& filePaths) {
-  auto path = GetConfigDirectory() / "session.txt";
+bool SessionManager::LoadSessionState(std::vector<SessionTab>& tabs) {
+  auto configDir = GetConfigDirectory();
+  auto path = configDir / "session.txt";
 
   std::ifstream file(path);
   if (!file.is_open()) return false;
 
-  std::string filepath;
+  std::string filepath, isDirtyStr, backupName;
   while (std::getline(file, filepath)) {
-    if (!filepath.empty() && filepath.back() == '\r') {
-      filepath.pop_back();
+    if (!filepath.empty() && filepath.back() == '\r') filepath.pop_back();
+
+    if (!std::getline(file, isDirtyStr)) break;
+    if (!isDirtyStr.empty() && isDirtyStr.back() == '\r') isDirtyStr.pop_back();
+
+    if (!std::getline(file, backupName)) break;
+    if (!backupName.empty() && backupName.back() == '\r') backupName.pop_back();
+
+    SessionTab tab;
+    tab.filePath = filepath;
+    tab.isDirty = (isDirtyStr == "1");
+
+    if (tab.isDirty && !backupName.empty()) {
+      std::ifstream backupFile(configDir / backupName, std::ios::binary);
+      if (backupFile.is_open()) {
+        std::ostringstream ss;
+        ss << backupFile.rdbuf();
+        tab.content = ss.str();
+      }
     }
-    if (!filepath.empty()) {
-      filePaths.push_back(filepath);
-    }
+    tabs.push_back(tab);
   }
 
-  return !filePaths.empty();
+  return !tabs.empty();
 }
 
 void SessionManager::SaveSettings(const AppSettings& settings) {
